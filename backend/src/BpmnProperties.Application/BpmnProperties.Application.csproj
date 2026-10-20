@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\BpmnProperties.Domain\BpmnProperties.Domain.csproj" />
+  </ItemGroup>
+</Project>

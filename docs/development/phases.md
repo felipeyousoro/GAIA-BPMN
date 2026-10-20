@@ -1,7 +1,7 @@
 # Implementation phases
 
 - [x] Phase 1: architecture and foundation
-- [ ] Phase 2: backend identity and dynamic properties
+- [x] Phase 2: backend identity and dynamic properties
 - [ ] Phase 3: S3-compatible file storage and attachments
 - [ ] Phase 4: Electron/React desktop client with BPMN import/viewing
 - [ ] Phase 5: quality, integration, packaging, and deployment hardening
