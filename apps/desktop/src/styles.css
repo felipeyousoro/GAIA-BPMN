@@ -1,0 +1,6 @@
+:root { font-family: Inter, system-ui, sans-serif; color: #172033; background: #f4f6fa; }
+* { box-sizing: border-box; } body { margin: 0; } main { max-width: 1100px; margin: auto; padding: 24px; }
+header, .toolbar, .workspace { display: flex; gap: 16px; align-items: center; } header { justify-content: space-between; } input, textarea { border: 1px solid #c5ccda; border-radius: 6px; padding: 9px; } header input { width: 300px; }
+.toolbar { margin: 24px 0; background: white; padding: 16px; border-radius: 8px; } .button, button { border: 0; border-radius: 6px; padding: 10px 14px; background: #2358d6; color: white; cursor: pointer; } .button input { display: none; }
+aside { width: 330px; background: white; padding: 16px; border-radius: 8px; min-height: 520px; } aside button { display: block; width: 100%; text-align: left; margin: 8px 0; background: #edf1fa; color: #172033; } aside button.selected { background: #d7e2ff; } small, strong { display: block; }
+article { flex: 1; background: white; border-radius: 8px; padding: 24px; min-height: 520px; } form { display: grid; gap: 16px; max-width: 520px; } form label { display: grid; gap: 6px; } textarea { min-height: 120px; }
