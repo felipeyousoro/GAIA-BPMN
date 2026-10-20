@@ -19,11 +19,7 @@ The application does not rewrite BPMN XML. Imported BPMN files are treated as re
 
 ## Local development
 
-```powershell
-docker compose -f deploy/compose.yaml up -d
-dotnet restore backend/BpmnProperties.sln
-dotnet run --project backend/src/BpmnProperties.Api
-```
+See [TUTORIAL.md](TUTORIAL.md) for the short, complete run guide.
 
 The API exposes OpenAPI at `/openapi/v1.json` and health at `/health`.
 
