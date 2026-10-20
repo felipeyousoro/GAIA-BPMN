@@ -5,6 +5,8 @@ using BpmnProperties.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;
+using Amazon.S3;
+using BpmnProperties.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddProblemDetails();
@@ -13,6 +15,15 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres")
         ?? "Host=localhost;Database=bpmn_properties;Username=bpmn_properties;Password=change-me-for-local-use"));
+builder.Services.AddSingleton<IAmazonS3>(_ => new AmazonS3Client(
+    builder.Configuration["Storage:AccessKey"] ?? "minio",
+    builder.Configuration["Storage:SecretKey"] ?? "change-me-for-local-use",
+    new AmazonS3Config
+    {
+        ServiceURL = builder.Configuration["Storage:ServiceUrl"] ?? "http://localhost:9000",
+        ForcePathStyle = true
+    }));
+builder.Services.AddSingleton<IObjectStorage, S3ObjectStorage>();
 
 var authority = builder.Configuration["Authentication:Authority"];
 if (!string.IsNullOrWhiteSpace(authority))
@@ -42,6 +53,15 @@ if (!string.IsNullOrWhiteSpace(authority))
 }
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" })).WithName("Health");
+app.MapPost("/api/v1/elements/{elementId:guid}/attachments", async (Guid elementId, IFormFile file, AppDbContext db, IObjectStorage storage, CancellationToken cancellationToken) =>
+{
+    if (file.Length is <= 0 or > 26_214_400) return Results.BadRequest("File must be between 1 byte and 25 MB.");
+    if (!await db.Elements.AnyAsync(x => x.Id == elementId, cancellationToken)) return Results.NotFound();
+    var key = $"elements/{elementId}/{Guid.NewGuid():N}";
+    await using var stream = file.OpenReadStream();
+    await storage.PutAsync(key, stream, file.ContentType ?? "application/octet-stream", cancellationToken);
+    return Results.Ok(new { key, file.FileName, file.Length, contentType = file.ContentType });
+}).DisableAntiforgery();
 
 var processes = app.MapGroup("/api/v1/processes");
 processes.MapGet("/", async (AppDbContext db, CancellationToken cancellationToken) =>

@@ -1,4 +1,23 @@
 services:
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Postgres: Host=postgres;Database=${POSTGRES_DB:-bpmn_properties};Username=${POSTGRES_USER:-bpmn_properties};Password=${POSTGRES_PASSWORD:-change-me-for-local-use}
+      Storage__ServiceUrl: http://minio:9000
+      Storage__Bucket: bpmn-properties
+      Storage__AccessKey: ${MINIO_ROOT_USER:-minio}
+      Storage__SecretKey: ${MINIO_ROOT_PASSWORD:-change-me-for-local-use}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
+
   postgres:
     image: postgres:16-alpine
     environment:
@@ -9,6 +28,7 @@ services:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ../backend/src/BpmnProperties.Infrastructure/Migrations/0001_initial.sql:/docker-entrypoint-initdb.d/001_initial.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
@@ -26,6 +46,13 @@ services:
       - "${MINIO_CONSOLE_PORT:-9001}:9001"
     volumes:
       - minio-data:/data
+
+  minio-init:
+    image: minio/mc:RELEASE.2024-06-13T19-24-45Z
+    depends_on:
+      - minio
+    entrypoint: /bin/sh
+    command: -c "until mc alias set local http://minio:9000 $${MINIO_ROOT_USER:-minio} $${MINIO_ROOT_PASSWORD:-change-me-for-local-use}; do sleep 2; done; mc mb --ignore-existing local/bpmn-properties; mc anonymous set none local/bpmn-properties"
 
 volumes:
   postgres-data:
