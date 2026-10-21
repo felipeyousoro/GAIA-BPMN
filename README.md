@@ -9,7 +9,9 @@ The application does not rewrite BPMN XML. Imported BPMN files are treated as re
 - Phase 1: repository foundation, architecture, local services, CI, and documentation.
 - Phase 2: backend process/element identity and dynamic property definitions/values.
 - Authentication is prepared for a configurable OIDC provider. Set `Authentication__Authority` and `Authentication__Audience` to enable JWT validation.
-- Audit history, file storage, BPMN round-trip export, and desktop packaging are later phases.
+- The initial attachment upload path uses private S3-compatible storage through MinIO.
+- The desktop client imports BPMN XML read-only and lets users inspect identifiers.
+- Audit history, BPMN round-trip export, and signed desktop packaging remain out of scope for this delivery.
 
 ## Prerequisites
 
