@@ -150,7 +150,8 @@ processes.MapGet("/{processId:guid}/tasks", async (Guid processId, AppDbContext 
 });
 processes.MapPut("/{processId:guid}/tasks", async (Guid processId, SaveTasksRequest request, AppDbContext db, IObjectStorage storage, CancellationToken cancellationToken) =>
 {
-    var process = await db.Processes.Include(x => x.Elements).SingleOrDefaultAsync(x => x.Id == processId, cancellationToken);
+    var process = await db.Processes.Include(x => x.Elements).ThenInclude(x => x.PropertyValues)
+        .SingleOrDefaultAsync(x => x.Id == processId, cancellationToken);
     if (process?.DiagramObjectKey is null) return Results.NotFound();
     var definitions = await db.PropertyDefinitions.Where(x => x.ProcessId == null && (x.Key == "input" || x.Key == "output")).ToDictionaryAsync(x => x.Key, cancellationToken);
     var values = new Dictionary<string, (string? Input, string? Output)>();

@@ -59,7 +59,7 @@ export async function saveTasks(id: string, tasks: Array<Pick<Task, "externalEle
   await request(`/api/v1/processes/${id}/tasks`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tasks }) });
 }
 
-export async function uploadAttachments(elementId: string, files: FileList | File[]): Promise<Attachment[]> {
+export async function uploadAttachments(elementId: string, files: File[]): Promise<Attachment[]> {
   const form = new FormData();
   Array.from(files).forEach(file => form.append("files", file));
   return attachmentSchema.array().parse(await (await request(`/api/v1/elements/${elementId}/attachments`, { method: "POST", body: form })).json());

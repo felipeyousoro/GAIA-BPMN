@@ -19,7 +19,7 @@ export function ProcessView({ processId, onHome }: { processId: string; onHome: 
     onSuccess: () => { setTasks(undefined); setDirty(false); void queryClient.invalidateQueries({ queryKey: ["tasks", processId] }); void queryClient.invalidateQueries({ queryKey: ["diagram", processId] }); }
   });
   const upload = useMutation({
-    mutationFn: (files: FileList) => selected ? uploadAttachments(selected.elementId, files) : Promise.resolve([] as Attachment[]),
+    mutationFn: (files: File[]) => selected ? uploadAttachments(selected.elementId, files) : Promise.resolve([] as Attachment[]),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["tasks", processId] })
   });
   const remove = useMutation({ mutationFn: deleteAttachment, onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["tasks", processId] }) });
@@ -41,6 +41,6 @@ export function ProcessView({ processId, onHome }: { processId: string; onHome: 
   if (diagram.error || tasksQuery.error || !diagram.data) return <main className="app-shell"><p className="error">{(diagram.error ?? tasksQuery.error)?.message ?? "Falha ao carregar processo."}</p></main>;
   return <main className="app-shell process-view"><header className="topbar"><button onClick={leave}>Voltar para Home</button><h1>Visualizador BPMN</h1><div className="actions"><button disabled={!dirty || save.isPending} onClick={() => save.mutate()}>{save.isPending ? "Salvando..." : "Salvar"}</button><button onClick={() => void download(downloadDiagram(processId), "diagram.bpmn")}>Baixar BPMN</button>{dirty && <small>Alterações não salvas</small>}</div></header>
     <section className="viewer-layout"><BpmnViewer xml={diagram.data} tasks={currentTasks} selectedId={selectedId} onSelect={select} /><TaskPanel task={selected} onChange={(field, value) => { setTasks(currentTasks.map(item => item.externalElementId === selectedId ? { ...item, [field]: value } : item)); setDirty(true); }} onUpload={files => upload.mutate(files)} onDownload={attachment => void download(downloadAttachment(attachment.id), attachment.fileName)} onDelete={attachment => remove.mutate(attachment.id)} /></section>
-    {save.error && <p className="error">{save.error.message}</p>}
+    {(save.error || upload.error || remove.error) && <p className="error">{(save.error ?? upload.error ?? remove.error)?.message}</p>}
   </main>;
 }

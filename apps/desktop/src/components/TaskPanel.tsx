@@ -4,7 +4,7 @@ import type { Attachment, Task } from "../api";
 export function TaskPanel({ task, onChange, onUpload, onDownload, onDelete }: {
   task?: Task;
   onChange: (field: "input" | "output", value: string) => void;
-  onUpload: (files: FileList) => void;
+  onUpload: (files: File[]) => void;
   onDownload: (attachment: Attachment) => void;
   onDelete: (attachment: Attachment) => void;
 }) {
@@ -14,7 +14,7 @@ export function TaskPanel({ task, onChange, onUpload, onDownload, onDelete }: {
     <label>Input<textarea value={task.input ?? ""} onChange={event => onChange("input", event.target.value)} /></label>
     <label>Output<textarea value={task.output ?? ""} onChange={event => onChange("output", event.target.value)} /></label>
     <h3>Anexos ({task.attachments.length})</h3>
-    <button onClick={() => input.current?.click()}>Adicionar anexos</button><input ref={input} hidden type="file" multiple onChange={event => { if (event.target.files) onUpload(event.target.files); event.target.value = ""; }} />
+    <button onClick={() => input.current?.click()}>Adicionar anexos</button><input ref={input} hidden type="file" multiple onChange={event => { if (event.target.files) onUpload(Array.from(event.target.files)); event.target.value = ""; }} />
     <ul>{task.attachments.map(attachment => <li key={attachment.id}><span>{attachment.fileName}</span><button onClick={() => onDownload(attachment)}>Baixar</button><button onClick={() => onDelete(attachment)}>Remover</button></li>)}</ul>
   </aside>;
 }
