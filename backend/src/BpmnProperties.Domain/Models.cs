@@ -29,6 +29,8 @@ public sealed class Process
     public Guid Id { get; private set; } = Guid.NewGuid();
     public string ExternalKey { get; private set; } = string.Empty;
     public string Name { get; private set; } = string.Empty;
+    public string? DiagramObjectKey { get; private set; }
+    public string? FileName { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; private set; } = DateTimeOffset.UtcNow;
     public List<BpmnElement> Elements { get; private set; } = [];
@@ -38,6 +40,15 @@ public sealed class Process
     {
         if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("Name is required.", nameof(name));
         Name = name.Trim();
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    public void AttachDiagram(string key, string fileName)
+    {
+        if (string.IsNullOrWhiteSpace(key)) throw new ArgumentException("Diagram key is required.", nameof(key));
+        if (string.IsNullOrWhiteSpace(fileName)) throw new ArgumentException("File name is required.", nameof(fileName));
+        DiagramObjectKey = key.Trim();
+        FileName = fileName.Trim();
         UpdatedAt = DateTimeOffset.UtcNow;
     }
 }
@@ -61,6 +72,39 @@ public sealed class BpmnElement
     public string? ElementType { get; private set; }
     public string? Name { get; private set; }
     public List<PropertyValue> PropertyValues { get; private set; } = [];
+    public List<ElementAttachment> Attachments { get; private set; } = [];
+
+    public void Rename(string? name, string? elementType)
+    {
+        Name = name?.Trim();
+        ElementType = elementType?.Trim();
+    }
+}
+
+public sealed class ElementAttachment
+{
+    private ElementAttachment() { }
+
+    public ElementAttachment(Guid elementId, string objectKey, string fileName, string contentType, long size)
+    {
+        if (string.IsNullOrWhiteSpace(objectKey)) throw new ArgumentException("Object key is required.", nameof(objectKey));
+        if (string.IsNullOrWhiteSpace(fileName)) throw new ArgumentException("File name is required.", nameof(fileName));
+        Id = Guid.NewGuid();
+        ElementId = elementId;
+        ObjectKey = objectKey.Trim();
+        FileName = fileName.Trim();
+        ContentType = string.IsNullOrWhiteSpace(contentType) ? "application/octet-stream" : contentType.Trim();
+        Size = size;
+        CreatedAt = DateTimeOffset.UtcNow;
+    }
+
+    public Guid Id { get; private set; }
+    public Guid ElementId { get; private set; }
+    public string ObjectKey { get; private set; } = string.Empty;
+    public string FileName { get; private set; } = string.Empty;
+    public string ContentType { get; private set; } = "application/octet-stream";
+    public long Size { get; private set; }
+    public DateTimeOffset CreatedAt { get; private set; }
 }
 
 public sealed class PropertyDefinition

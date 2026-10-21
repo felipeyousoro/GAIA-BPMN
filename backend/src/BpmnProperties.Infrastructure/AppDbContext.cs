@@ -10,6 +10,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<PropertyDefinition> PropertyDefinitions => Set<PropertyDefinition>();
     public DbSet<PropertyOption> PropertyOptions => Set<PropertyOption>();
     public DbSet<PropertyValue> PropertyValues => Set<PropertyValue>();
+    public DbSet<ElementAttachment> ElementAttachments => Set<ElementAttachment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -31,6 +32,19 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(x => x.Name).HasMaxLength(300);
             entity.HasIndex(x => new { x.ProcessId, x.ExternalElementId }).IsUnique();
             entity.HasOne<Process>().WithMany(x => x.Elements).HasForeignKey(x => x.ProcessId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasMany(x => x.Attachments).WithOne().HasForeignKey(x => x.ElementId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ElementAttachment>(entity =>
+        {
+            entity.ToTable("element_attachments");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.ObjectKey).HasMaxLength(500).IsRequired();
+            entity.Property(x => x.FileName).HasMaxLength(300).IsRequired();
+            entity.Property(x => x.ContentType).HasMaxLength(200).IsRequired();
+            entity.Property(x => x.Size).IsRequired();
+            entity.Property(x => x.CreatedAt).IsRequired();
+            entity.HasIndex(x => x.ElementId);
         });
 
         modelBuilder.Entity<PropertyDefinition>(entity =>
