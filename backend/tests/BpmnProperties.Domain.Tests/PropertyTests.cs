@@ -1,4 +1,6 @@
 using System.Text.Json;
+using System.Xml;
+using System.Xml.Linq;
 using BpmnProperties.Application;
 using BpmnProperties.Domain;
 
@@ -6,6 +8,41 @@ namespace BpmnProperties.Domain.Tests;
 
 public sealed class PropertyTests
 {
+    [Fact]
+    public void BpmnXmlParsesTasksAndRoundTripsIo()
+    {
+        using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes("""
+            <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:vendor="urn:vendor">
+              <process id="Process_1" name="Order"><task id="Task_1" name="Review"><extensionElements><vendor:custom /></extensionElements></task></process>
+            </definitions>
+            """));
+
+        var parsed = BpmnXml.Parse(stream, "order.bpmn");
+        Assert.Single(parsed.Tasks);
+        Assert.Equal("Task_1", parsed.Tasks[0].ExternalElementId);
+
+        BpmnXml.ApplyTaskValues(parsed.Xml, new Dictionary<string, (string?, string?)>
+        {
+            ["Task_1"] = ("Check order", "Approved")
+        });
+
+        var text = BpmnXml.Serialize(parsed.Xml);
+        Assert.Contains("vendor:custom", text);
+        Assert.Contains("Check order", text);
+        Assert.Contains("Approved", text);
+    }
+
+    [Fact]
+    public void BpmnXmlRejectsDtd()
+    {
+        using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes("""
+            <!DOCTYPE definitions [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>
+            <definitions><process id="p" name="x"><task id="t" name="&xxe;" /></process></definitions>
+            """));
+
+        Assert.Throws<XmlException>(() => BpmnXml.Parse(stream));
+    }
+
     [Fact]
     public void ElementIdsAreScopedByProcess()
     {
