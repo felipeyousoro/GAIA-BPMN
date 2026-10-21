@@ -6,12 +6,23 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Amazon.S3;
-using BpmnProperties.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddProblemDetails();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ?? ["http://localhost:5173", "null"];
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("desktop", policy =>
+    {
+        policy.SetIsOriginAllowed(origin => allowedOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase))
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .WithExposedHeaders("Content-Disposition");
+    });
+});
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres")
         ?? "Host=localhost;Database=bpmn_properties;Username=bpmn_properties;Password=change-me-for-local-use"));
@@ -45,7 +56,11 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-app.UseHttpsRedirection();
+app.UseCors("desktop");
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 if (!string.IsNullOrWhiteSpace(authority))
 {
     app.UseAuthentication();

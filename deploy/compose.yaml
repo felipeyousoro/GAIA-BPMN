@@ -10,6 +10,8 @@ services:
       Storage__Bucket: bpmn-properties
       Storage__AccessKey: ${MINIO_ROOT_USER:-minio}
       Storage__SecretKey: ${MINIO_ROOT_PASSWORD:-change-me-for-local-use}
+      Cors__AllowedOrigins__0: ${CORS_ALLOWED_ORIGIN_DEV:-http://localhost:5173}
+      Cors__AllowedOrigins__1: ${CORS_ALLOWED_ORIGIN_ELECTRON:-null}
     ports:
       - "8080:8080"
     depends_on:
