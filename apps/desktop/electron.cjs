@@ -1,4 +1,4 @@
-const { app, BrowserWindow, session } = require("electron");
+const { app, BrowserWindow } = require("electron");
 const path = require("node:path");
 
 function createWindow() {
@@ -7,8 +7,8 @@ function createWindow() {
     height: 820,
     webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true }
   });
-  session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => callback({ requestHeaders: details.requestHeaders }));
-  window.loadFile(path.join(__dirname, "dist", "index.html"));
+  if (process.env.VITE_DEV_SERVER_URL) window.loadURL(process.env.VITE_DEV_SERVER_URL);
+  else window.loadFile(path.join(__dirname, "dist", "index.html"));
 }
 
 app.whenReady().then(createWindow);
