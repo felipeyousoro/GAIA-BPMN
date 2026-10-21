@@ -1,6 +1,6 @@
 # Desktop
 
-Aplicativo web desktop inicial para importar e visualizar BPMN. O parser lê IDs e nomes do XML sem regravar o arquivo; os campos editáveis representam metadados da aplicação e serão ligados à API nas próximas iterações.
+Aplicativo Electron/React para listar processos, importar e visualizar BPMN, editar Input/Output de tasks, gerenciar anexos e baixar o XML atualizado. O desenho é somente leitura; os valores são persistidos pela API e no namespace `gaia` do XML.
 
 ```powershell
 npm.cmd install
