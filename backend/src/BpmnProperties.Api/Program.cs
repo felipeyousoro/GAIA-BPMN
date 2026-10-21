@@ -210,7 +210,10 @@ definitions.MapGet("/", async (Guid? processId, AppDbContext db, CancellationTok
 {
     var query = db.PropertyDefinitions.AsNoTracking().Where(x => x.IsActive);
     if (processId.HasValue) query = query.Where(x => x.ProcessId == null || x.ProcessId == processId);
-    return Results.Ok(await query.OrderBy(x => x.DisplayOrder).Select(x => new PropertyDefinitionResponse(x.Id, x.ProcessId, x.Key, x.DisplayName, x.Description, x.DataType, x.IsRequired, x.IsActive, x.DisplayOrder, x.DefaultValueJson == null ? null : JsonSerializer.Deserialize<JsonElement>(x.DefaultValueJson))).ToListAsync(cancellationToken));
+    var definitions = await query.OrderBy(x => x.DisplayOrder).ToListAsync(cancellationToken);
+    return Results.Ok(definitions.Select(x => new PropertyDefinitionResponse(
+        x.Id, x.ProcessId, x.Key, x.DisplayName, x.Description, x.DataType, x.IsRequired, x.IsActive,
+        x.DisplayOrder, x.DefaultValueJson is null ? null : JsonSerializer.Deserialize<JsonElement>(x.DefaultValueJson, new JsonSerializerOptions()))));
 });
 definitions.MapPost("/", async (CreatePropertyDefinitionRequest request, AppDbContext db, CancellationToken cancellationToken) =>
 {
