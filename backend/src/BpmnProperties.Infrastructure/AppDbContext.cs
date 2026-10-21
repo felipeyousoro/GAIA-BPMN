@@ -56,6 +56,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(x => x.Description).HasMaxLength(1000);
             entity.Property(x => x.DataType).HasConversion<string>().HasMaxLength(40);
             entity.HasIndex(x => new { x.ProcessId, x.Key }).IsUnique();
+            entity.Property(x => x.DefaultValueJson).HasColumnType("jsonb");
             entity.HasOne<Process>().WithMany(x => x.PropertyDefinitions).HasForeignKey(x => x.ProcessId).OnDelete(DeleteBehavior.Cascade);
         });
 
@@ -74,7 +75,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.ToTable("property_values");
             entity.HasKey(x => x.Id);
             entity.Property(x => x.ValueJson).HasColumnType("jsonb").IsRequired();
-            entity.Property(x => x.Version).IsRowVersion();
+            entity.Property(x => x.Version).IsConcurrencyToken().IsRequired();
             entity.HasIndex(x => new { x.ElementId, x.PropertyDefinitionId }).IsUnique();
             entity.HasOne<BpmnElement>().WithMany(x => x.PropertyValues).HasForeignKey(x => x.ElementId).OnDelete(DeleteBehavior.Cascade);
             entity.HasOne<PropertyDefinition>().WithMany().HasForeignKey(x => x.PropertyDefinitionId).OnDelete(DeleteBehavior.Restrict);

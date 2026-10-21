@@ -181,11 +181,12 @@ public sealed class PropertyValue
     public Guid PropertyDefinitionId { get; private set; }
     public string ValueJson { get; private set; } = string.Empty;
     public DateTimeOffset UpdatedAt { get; private set; }
-    public byte[] Version { get; private set; } = [];
+    public byte[] Version { get; private set; } = Guid.NewGuid().ToByteArray();
 
     public void Update(string valueJson)
     {
         ValueJson = valueJson;
         UpdatedAt = DateTimeOffset.UtcNow;
+        Version = Guid.NewGuid().ToByteArray();
     }
 }

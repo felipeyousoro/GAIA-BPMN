@@ -3,6 +3,7 @@ using System.Xml;
 using System.Xml.Linq;
 using BpmnProperties.Application;
 using BpmnProperties.Domain;
+using Xunit;
 
 namespace BpmnProperties.Domain.Tests;
 
@@ -30,6 +31,7 @@ public sealed class PropertyTests
         Assert.Contains("vendor:custom", text);
         Assert.Contains("Check order", text);
         Assert.Contains("Approved", text);
+        Assert.DoesNotContain("encoding=\"utf-16\"", text, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

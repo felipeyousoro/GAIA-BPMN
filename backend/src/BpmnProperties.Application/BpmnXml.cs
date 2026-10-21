@@ -9,6 +9,7 @@ public sealed record BpmnDocument(string ExternalKey, string Name, XDocument Xml
 
 public static class BpmnXml
 {
+    public const string BpmnNamespace = "http://www.omg.org/spec/BPMN/20100524/MODEL";
     public const string GaiaNamespace = "http://gaia-bpmn/schema/1.0";
     public const int MaxBytes = 10 * 1024 * 1024;
 
@@ -78,12 +79,13 @@ public static class BpmnXml
     {
         using var writer = new StringWriter(System.Globalization.CultureInfo.InvariantCulture);
         document.Save(writer, SaveOptions.DisableFormatting);
-        return writer.ToString();
+        return writer.ToString().Replace("encoding=\"utf-16\"", "encoding=\"utf-8\"", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsTask(XElement element) =>
-        element.Name.LocalName.EndsWith("Task", StringComparison.Ordinal)
-        || element.Name.LocalName is "task" or "subProcess" or "callActivity";
+        element.Name.NamespaceName == BpmnNamespace
+        && (element.Name.LocalName.EndsWith("Task", StringComparison.Ordinal)
+            || element.Name.LocalName is "task" or "subProcess" or "callActivity");
 
     private static void SetElement(XElement parent, XName name, string? value)
     {

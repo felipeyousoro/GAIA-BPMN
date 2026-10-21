@@ -70,8 +70,19 @@ processes.MapPost("/import", async (HttpRequest request, AppDbContext db, IObjec
     if (file is null || file.Length <= 0 || file.Length > BpmnXml.MaxBytes || !file.FileName.EndsWith(".bpmn", StringComparison.OrdinalIgnoreCase))
         return Results.BadRequest("Exactly one non-empty .bpmn file up to 10 MB is required.");
     await using var uploaded = file.OpenReadStream();
-    var parsed = BpmnXml.Parse(uploaded, file.FileName);
-    var process = await db.Processes.Include(x => x.Elements).SingleOrDefaultAsync(x => x.ExternalKey == parsed.ExternalKey, cancellationToken);
+    BpmnDocument parsed;
+    try
+    {
+        parsed = BpmnXml.Parse(uploaded, file.FileName);
+    }
+    catch (InvalidDataException exception)
+    {
+        return Results.BadRequest(exception.Message);
+    }
+    var process = await db.Processes
+        .Include(x => x.Elements)
+        .ThenInclude(x => x.PropertyValues)
+        .SingleOrDefaultAsync(x => x.ExternalKey == parsed.ExternalKey, cancellationToken);
     if (process is null)
     {
         process = new Process(parsed.ExternalKey, parsed.Name);
