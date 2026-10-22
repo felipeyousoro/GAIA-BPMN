@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { clearSession, getAuthToken, getMe, onUnauthorized, User } from "./api";
+import { AppLayout, NavSection } from "./components/AppLayout";
 import { Home } from "./pages/Home";
 import { Login } from "./pages/Login";
 import { ProcessView } from "./pages/ProcessView";
@@ -10,7 +11,9 @@ const queryClient = new QueryClient();
 function Shell() {
   const [user, setUser] = useState<User | null>(null);
   const [checkingAuth, setCheckingAuth] = useState<boolean>(() => Boolean(getAuthToken()));
+  const [activeSection, setActiveSection] = useState<NavSection>("processes");
   const [processId, setProcessId] = useState<string>();
+  const [avatarVersion] = useState(0);
 
   useEffect(() => {
     const unsubscribe = onUnauthorized(() => {
@@ -44,6 +47,14 @@ function Shell() {
     };
   }, []);
 
+  function handleLogout() {
+    clearSession();
+    setUser(null);
+    setProcessId(undefined);
+    setActiveSection("processes");
+    queryClient.clear();
+  }
+
   if (checkingAuth) {
     return (
       <div className="login-page">
@@ -58,11 +69,43 @@ function Shell() {
     return <Login onSuccess={loggedUser => setUser(loggedUser)} />;
   }
 
-  return processId
-    ? <ProcessView processId={processId} onHome={() => setProcessId(undefined)} />
-    : <Home onOpen={setProcessId} />;
+  const pageTitle =
+    activeSection === "settings"
+      ? "Configurações do Sistema"
+      : processId
+      ? "Visualizador de Processo BPMN"
+      : "Portfólio de Processos BPMN";
+
+  return (
+    <AppLayout
+      title={pageTitle}
+      activeSection={activeSection}
+      user={user}
+      avatarVersion={avatarVersion}
+      onNavigate={section => {
+        setActiveSection(section);
+        if (section === "processes") setProcessId(undefined);
+      }}
+      onLogout={handleLogout}
+    >
+      {activeSection === "settings" ? (
+        <div className="empty-state-card">
+          <h3>Configurações</h3>
+          <p>Gerenciamento de perfil e conexões.</p>
+        </div>
+      ) : processId ? (
+        <ProcessView processId={processId} user={user} onHome={() => setProcessId(undefined)} />
+      ) : (
+        <Home user={user} onOpen={setProcessId} />
+      )}
+    </AppLayout>
+  );
 }
 
 export function App() {
-  return <QueryClientProvider client={queryClient}><Shell /></QueryClientProvider>;
+  return (
+    <QueryClientProvider client={queryClient}>
+      <Shell />
+    </QueryClientProvider>
+  );
 }

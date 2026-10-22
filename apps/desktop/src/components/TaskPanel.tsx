@@ -1,20 +1,114 @@
 import { useRef } from "react";
 import type { Attachment, Task } from "../api";
 
-export function TaskPanel({ task, onChange, onUpload, onDownload, onDelete }: {
+export function TaskPanel({
+  task,
+  readOnly = false,
+  onChange,
+  onUpload,
+  onDownload,
+  onDelete
+}: {
   task?: Task;
+  readOnly?: boolean;
   onChange: (field: "input" | "output", value: string) => void;
   onUpload: (files: File[]) => void;
   onDownload: (attachment: Attachment) => void;
   onDelete: (attachment: Attachment) => void;
 }) {
   const input = useRef<HTMLInputElement>(null);
-  if (!task) return <aside className="task-panel"><p>Selecione uma task no diagrama.</p></aside>;
-  return <aside className="task-panel"><h2>{task.name || task.externalElementId}</h2><small>{task.externalElementId}</small>
-    <label>Input<textarea value={task.input ?? ""} onChange={event => onChange("input", event.target.value)} /></label>
-    <label>Output<textarea value={task.output ?? ""} onChange={event => onChange("output", event.target.value)} /></label>
-    <h3>Anexos ({task.attachments.length})</h3>
-    <button onClick={() => input.current?.click()}>Adicionar anexos</button><input ref={input} hidden type="file" multiple onChange={event => { if (event.target.files) onUpload(Array.from(event.target.files)); event.target.value = ""; }} />
-    <ul>{task.attachments.map(attachment => <li key={attachment.id}><span>{attachment.fileName}</span><button onClick={() => onDownload(attachment)}>Baixar</button><button onClick={() => onDelete(attachment)}>Remover</button></li>)}</ul>
-  </aside>;
+
+  if (!task) {
+    return (
+      <aside className="task-panel empty-task-panel">
+        <div className="task-panel-header">
+          <h2>Detalhes da Task</h2>
+        </div>
+        <p className="muted-text">Selecione uma task no diagrama para visualizar suas propriedades e anexos.</p>
+      </aside>
+    );
+  }
+
+  return (
+    <aside className="task-panel">
+      <div className="task-panel-header">
+        <div>
+          <h2>{task.name || task.externalElementId}</h2>
+          <small className="task-id-tag">{task.externalElementId}</small>
+        </div>
+        {readOnly && <span className="readonly-pill">Somente Leitura</span>}
+      </div>
+
+      <label className="form-label">
+        Input
+        <textarea
+          readOnly={readOnly}
+          className={readOnly ? "textarea-readonly" : ""}
+          placeholder={readOnly ? "Sem conteúdo de entrada." : "Descreva os insumos/entradas desta task..."}
+          value={task.input ?? ""}
+          onChange={event => {
+            if (!readOnly) onChange("input", event.target.value);
+          }}
+        />
+      </label>
+
+      <label className="form-label">
+        Output
+        <textarea
+          readOnly={readOnly}
+          className={readOnly ? "textarea-readonly" : ""}
+          placeholder={readOnly ? "Sem conteúdo de saída." : "Descreva os resultados/saídas desta task..."}
+          value={task.output ?? ""}
+          onChange={event => {
+            if (!readOnly) onChange("output", event.target.value);
+          }}
+        />
+      </label>
+
+      <div className="attachments-section">
+        <div className="attachments-header">
+          <h3>Anexos ({task.attachments.length})</h3>
+          {!readOnly && (
+            <>
+              <button type="button" className="btn-secondary btn-sm" onClick={() => input.current?.click()}>
+                + Adicionar anexos
+              </button>
+              <input
+                ref={input}
+                hidden
+                type="file"
+                multiple
+                onChange={event => {
+                  if (event.target.files) onUpload(Array.from(event.target.files));
+                  event.target.value = "";
+                }}
+              />
+            </>
+          )}
+        </div>
+
+        {task.attachments.length === 0 ? (
+          <p className="muted-text">Nenhum anexo vinculado a esta task.</p>
+        ) : (
+          <ul className="attachment-list">
+            {task.attachments.map(attachment => (
+              <li key={attachment.id} className="attachment-item">
+                <span title={attachment.fileName}>{attachment.fileName}</span>
+                <div className="attachment-actions">
+                  <button type="button" className="btn-secondary btn-xs" onClick={() => onDownload(attachment)}>
+                    Baixar
+                  </button>
+                  {!readOnly && (
+                    <button type="button" className="btn-danger btn-xs" onClick={() => onDelete(attachment)}>
+                      Remover
+                    </button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </aside>
+  );
 }
