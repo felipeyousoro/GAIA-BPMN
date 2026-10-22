@@ -40,6 +40,42 @@ if (!string.IsNullOrWhiteSpace(authority))
 }
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    try
+    {
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS users (
+                "Id" uuid PRIMARY KEY,
+                "Username" varchar(100) NOT NULL,
+                "DisplayName" varchar(200) NOT NULL,
+                "PasswordHash" varchar(500) NOT NULL,
+                "Role" varchar(40) NOT NULL,
+                "AvatarObjectKey" varchar(500),
+                "AvatarContentType" varchar(200),
+                "CreatedAt" timestamptz NOT NULL,
+                "UpdatedAt" timestamptz NOT NULL
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_users_Username" ON users ("Username");
+            """);
+
+        if (!await db.Users.AnyAsync(x => x.Role == UserRole.Admin))
+        {
+            var adminUsername = builder.Configuration["Auth:AdminUsername"] ?? "admin";
+            var adminPassword = builder.Configuration["Auth:AdminPassword"] ?? "admin123";
+            var adminDisplayName = builder.Configuration["Auth:AdminDisplayName"] ?? "Administrador";
+            db.Users.Add(new User(adminUsername, adminDisplayName, PasswordHasher.Hash(adminPassword), UserRole.Admin));
+            await db.SaveChangesAsync();
+        }
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogWarning(ex, "Could not ensure users table or seed admin user on startup.");
+    }
+}
+
 app.UseExceptionHandler();
 if (app.Environment.IsDevelopment())
 {

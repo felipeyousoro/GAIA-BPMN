@@ -74,4 +74,40 @@ public sealed class PropertyTests
 
         Assert.NotNull(error);
     }
+
+    [Fact]
+    public void UserCreationNormalizesUsernameAndUpdatesProfile()
+    {
+        var hash = PasswordHasher.Hash("secret123");
+        var user = new User("  Admin.User  ", "  Admin User  ", hash, UserRole.Admin);
+
+        Assert.Equal("admin.user", user.Username);
+        Assert.Equal("Admin User", user.DisplayName);
+        Assert.Equal(UserRole.Admin, user.Role);
+        Assert.Null(user.AvatarObjectKey);
+
+        user.UpdateProfile("  Novo Nome  ");
+        Assert.Equal("Novo Nome", user.DisplayName);
+
+        user.SetAvatar("avatars/123", "image/png");
+        Assert.Equal("avatars/123", user.AvatarObjectKey);
+        Assert.Equal("image/png", user.AvatarContentType);
+    }
+
+    [Fact]
+    public void PasswordHasherVerifiesAndRejectsInvalidPasswords()
+    {
+        var hash = PasswordHasher.Hash("admin123");
+
+        Assert.True(PasswordHasher.Verify("admin123", hash));
+        Assert.False(PasswordHasher.Verify("wrongpass", hash));
+        Assert.False(PasswordHasher.Verify("", hash));
+
+        var user = new User("guest", "Convidado", hash, UserRole.Guest);
+        var newHash = PasswordHasher.Hash("novaSenha456");
+        user.SetPasswordHash(newHash);
+
+        Assert.False(PasswordHasher.Verify("admin123", user.PasswordHash));
+        Assert.True(PasswordHasher.Verify("novaSenha456", user.PasswordHash));
+    }
 }

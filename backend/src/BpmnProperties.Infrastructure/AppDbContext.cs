@@ -11,6 +11,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<PropertyOption> PropertyOptions => Set<PropertyOption>();
     public DbSet<PropertyValue> PropertyValues => Set<PropertyValue>();
     public DbSet<ElementAttachment> ElementAttachments => Set<ElementAttachment>();
+    public DbSet<User> Users => Set<User>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -79,6 +80,21 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.HasIndex(x => new { x.ElementId, x.PropertyDefinitionId }).IsUnique();
             entity.HasOne<BpmnElement>().WithMany(x => x.PropertyValues).HasForeignKey(x => x.ElementId).OnDelete(DeleteBehavior.Cascade);
             entity.HasOne<PropertyDefinition>().WithMany().HasForeignKey(x => x.PropertyDefinitionId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.ToTable("users");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Username).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.DisplayName).HasMaxLength(200).IsRequired();
+            entity.Property(x => x.PasswordHash).HasMaxLength(500).IsRequired();
+            entity.Property(x => x.Role).HasConversion<string>().HasMaxLength(40).IsRequired();
+            entity.Property(x => x.AvatarObjectKey).HasMaxLength(500);
+            entity.Property(x => x.AvatarContentType).HasMaxLength(200);
+            entity.Property(x => x.CreatedAt).IsRequired();
+            entity.Property(x => x.UpdatedAt).IsRequired();
+            entity.HasIndex(x => x.Username).IsUnique();
         });
     }
 }

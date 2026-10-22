@@ -190,3 +190,59 @@ public sealed class PropertyValue
         Version = Guid.NewGuid().ToByteArray();
     }
 }
+
+public enum UserRole
+{
+    Admin,
+    Guest
+}
+
+public sealed class User
+{
+    private User() { }
+
+    public User(string username, string displayName, string passwordHash, UserRole role)
+    {
+        if (string.IsNullOrWhiteSpace(username)) throw new ArgumentException("Username is required.", nameof(username));
+        if (string.IsNullOrWhiteSpace(displayName)) throw new ArgumentException("Display name is required.", nameof(displayName));
+        if (string.IsNullOrWhiteSpace(passwordHash)) throw new ArgumentException("Password hash is required.", nameof(passwordHash));
+        Id = Guid.NewGuid();
+        Username = username.Trim().ToLowerInvariant();
+        DisplayName = displayName.Trim();
+        PasswordHash = passwordHash;
+        Role = role;
+        CreatedAt = DateTimeOffset.UtcNow;
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    public Guid Id { get; private set; }
+    public string Username { get; private set; } = string.Empty;
+    public string DisplayName { get; private set; } = string.Empty;
+    public string PasswordHash { get; private set; } = string.Empty;
+    public UserRole Role { get; private set; }
+    public string? AvatarObjectKey { get; private set; }
+    public string? AvatarContentType { get; private set; }
+    public DateTimeOffset CreatedAt { get; private set; }
+    public DateTimeOffset UpdatedAt { get; private set; }
+
+    public void UpdateProfile(string displayName)
+    {
+        if (string.IsNullOrWhiteSpace(displayName)) throw new ArgumentException("Display name is required.", nameof(displayName));
+        DisplayName = displayName.Trim();
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    public void SetPasswordHash(string passwordHash)
+    {
+        if (string.IsNullOrWhiteSpace(passwordHash)) throw new ArgumentException("Password hash is required.", nameof(passwordHash));
+        PasswordHash = passwordHash;
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    public void SetAvatar(string? key, string? contentType)
+    {
+        AvatarObjectKey = string.IsNullOrWhiteSpace(key) ? null : key.Trim();
+        AvatarContentType = string.IsNullOrWhiteSpace(contentType) ? null : contentType.Trim();
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+}
