@@ -43,11 +43,17 @@ Abra o endereço mostrado pelo Vite.
 
 ## 3. Usar
 
-1. Informe a URL da API, normalmente `http://localhost:8080`.
-2. Clique em **Importar BPMN** e selecione `.bpmn` ou `.xml`.
-3. Clique em uma task no diagrama para abrir o painel.
-4. Edite **Input** e **Output**, adicione anexos e clique em **Salvar**.
-5. Use **Baixar BPMN** para obter o XML com os valores `gaia:input` e `gaia:output`.
+1. Na tela de **Login**, caso o servidor não esteja em `http://localhost:8080`, clique em **Configurar servidor API** para informar a URL.
+2. Entre com o usuário mestre padrão criado automaticamente no primeiro boot:
+   - **Usuário**: `admin`
+   - **Senha**: `admin123`
+3. Como **Mestre (`Admin`)**:
+   - Clique em **+ Importar BPMN** na tela de Processos e selecione um arquivo `.bpmn`.
+   - Clique em uma task no diagrama para editar **Input**, **Output**, adicionar/remover anexos e clicar em **Salvar**.
+   - Acesse **Configurações (Settings)** na barra lateral para alterar foto de perfil, nome de exibição, senha, URL da API e gerenciar usuários convidados (criar novos usuários, resetar senhas ou remover convidados).
+4. Como **Convidado (`Guest`)**:
+   - Acesso somente leitura: pode navegar pelos processos importados, inspecionar `Input`/`Output` das tasks e baixar tanto o diagrama BPMN quanto os anexos.
+   - Em **Configurações (Settings)**, pode alterar a própria foto de perfil, nome de exibição, senha e URL da API.
 
 O desenho BPMN não é editável. A API preserva extensões existentes e grava apenas os valores GAIA. Para desenvolvimento web, `npm.cmd run dev` usa CORS em `http://localhost:5173`; o Electron usa a origem `null`.
 

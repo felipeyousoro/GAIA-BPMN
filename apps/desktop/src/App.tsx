@@ -5,6 +5,7 @@ import { AppLayout, NavSection } from "./components/AppLayout";
 import { Home } from "./pages/Home";
 import { Login } from "./pages/Login";
 import { ProcessView } from "./pages/ProcessView";
+import { Settings } from "./pages/Settings";
 
 const queryClient = new QueryClient();
 
@@ -13,7 +14,7 @@ function Shell() {
   const [checkingAuth, setCheckingAuth] = useState<boolean>(() => Boolean(getAuthToken()));
   const [activeSection, setActiveSection] = useState<NavSection>("processes");
   const [processId, setProcessId] = useState<string>();
-  const [avatarVersion] = useState(0);
+  const [avatarVersion, setAvatarVersion] = useState(0);
 
   useEffect(() => {
     const unsubscribe = onUnauthorized(() => {
@@ -89,10 +90,15 @@ function Shell() {
       onLogout={handleLogout}
     >
       {activeSection === "settings" ? (
-        <div className="empty-state-card">
-          <h3>Configurações</h3>
-          <p>Gerenciamento de perfil e conexões.</p>
-        </div>
+        <Settings
+          user={user}
+          avatarVersion={avatarVersion}
+          onUserUpdated={updated => setUser(updated)}
+          onAvatarUpdated={updated => {
+            setUser(updated);
+            setAvatarVersion(v => v + 1);
+          }}
+        />
       ) : processId ? (
         <ProcessView processId={processId} user={user} onHome={() => setProcessId(undefined)} />
       ) : (
