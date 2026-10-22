@@ -5,3 +5,32 @@ header, .toolbar, .workspace { display: flex; gap: 16px; align-items: center; } 
 aside { width: 330px; background: white; padding: 16px; border-radius: 8px; min-height: 520px; } aside button { display: block; width: 100%; text-align: left; margin: 8px 0; background: #edf1fa; color: #172033; } aside button.selected { background: #d7e2ff; } small, strong { display: block; }
 article { flex: 1; background: white; border-radius: 8px; padding: 24px; min-height: 520px; } form { display: grid; gap: 16px; max-width: 520px; } form label { display: grid; gap: 6px; } textarea { min-height: 120px; }
 .app-shell { max-width: none; min-height: 100vh; padding: 24px; } .topbar { justify-content: space-between; } .process-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; } .process-card { display: grid; gap: 8px; text-align: left; background: white; color: #172033; border: 1px solid #dce2ee; } .process-card small { color: #667085; } .error { color: #b42318; } .viewer-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; min-height: calc(100vh - 110px); } .bpmn-canvas { min-height: 650px; background: white; border-radius: 8px; } .task-panel { width: auto; min-height: 0; } .task-panel label { display: grid; gap: 6px; margin: 16px 0; } .task-panel li { display: flex; gap: 6px; align-items: center; margin: 8px 0; } .task-panel li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; } .djs-element.has-values .djs-visual > :first-child { stroke: #2358d6; stroke-width: 3px; } .djs-element.selected .djs-visual > :first-child { stroke: #e06c00; stroke-width: 4px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.login-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #f9fafb; padding: 24px; }
+.login-card { width: 100%; max-width: 420px; background: #ffffff; border-radius: 10px; padding: 32px; box-shadow: 0 10px 25px rgba(18, 51, 58, 0.08); border: 1px solid #e5e7eb; }
+.login-header { text-align: center; margin-bottom: 24px; }
+.brand-bars { display: inline-flex; align-items: flex-end; gap: 6px; height: 56px; margin-bottom: 12px; }
+.brand-bar-left { width: 20px; height: 42px; background: #1799a3; opacity: 0.45; border-radius: 2px; }
+.brand-bar-right { width: 20px; height: 52px; background: #17b9c0; border-radius: 2px; }
+.login-title { margin: 8px 0 4px; font-size: 28px; font-weight: 800; color: #111827; }
+.login-subtitle { margin: 0; font-size: 14px; color: #4b5563; }
+.login-form { display: grid; gap: 18px; max-width: none; }
+.login-stacked-inputs { display: grid; border-radius: 6px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); }
+.login-input { width: 100%; border: 1px solid #d1d5db; padding: 10px 12px; font-size: 14px; color: #111827; outline: none; transition: border-color 0.2s, box-shadow 0.2s; }
+.login-input-top { border-radius: 6px 6px 0 0; }
+.login-input-bottom { border-top: 0; border-radius: 0 0 6px 6px; }
+.login-input:focus { border-color: #17b9c0; box-shadow: 0 0 0 2px rgba(23, 185, 192, 0.25); position: relative; z-index: 2; }
+.btn-primary { background: #17b9c0; color: #ffffff; font-weight: 600; border-radius: 6px; padding: 10px 16px; border: 0; cursor: pointer; transition: background-color 0.2s; }
+.btn-primary:hover:not(:disabled) { background: #1799a3; }
+.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+.login-submit { width: 100%; }
+.login-error { text-align: center; margin: 0; font-size: 13px; }
+.login-api-config { margin-top: 20px; padding-top: 16px; border-top: 1px solid #e5e7eb; text-align: center; }
+.login-api-toggle { background: transparent; color: #0f4e5c; font-size: 12px; padding: 4px 8px; text-decoration: underline; }
+.login-api-box { margin-top: 12px; text-align: left; background: #f9fafb; padding: 12px; border-radius: 6px; border: 1px solid #e5e7eb; }
+.inline-input-group { display: flex; gap: 8px; }
+.inline-input-group input { flex: 1; }
+.btn-secondary { background: #0f4e5c; color: #ffffff; font-weight: 600; border-radius: 6px; padding: 9px 14px; }
+.btn-secondary:hover { background: #1799a3; }
+.api-feedback { margin-top: 6px; color: #0f4e5c; }
+
