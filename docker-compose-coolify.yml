@@ -1,0 +1,76 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: gaia-bpmn-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-bpmn_properties}
+      POSTGRES_USER: ${POSTGRES_USER:-bpmn_properties}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-for-local-use}
+    volumes:
+      - gaia-bpmn-db:/var/lib/postgresql/data
+      - ./backend/src/BpmnProperties.Infrastructure/Migrations/0001_initial.sql:/docker-entrypoint-initdb.d/001_initial.sql:ro
+      - ./backend/src/BpmnProperties.Infrastructure/Migrations/0002_diagrams_io_attachments.sql:/docker-entrypoint-initdb.d/002_diagrams_io_attachments.sql:ro
+      - ./backend/src/BpmnProperties.Infrastructure/Migrations/0003_users_auth.sql:/docker-entrypoint-initdb.d/003_users_auth.sql:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  object-storage:
+    image: rustfs/rustfs:latest
+    container_name: gaia-bpmn-storage
+    command: server /data --address ":9000"
+    environment:
+      RUSTFS_ACCESS_KEY: ${MINIO_ROOT_USER:-minio}
+      RUSTFS_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-change-me-for-local-use}
+    volumes:
+      - gaia-bpmn-storage:/data
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile
+    container_name: gaia-bpmn-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Postgres: Host=db;Database=${POSTGRES_DB:-bpmn_properties};Username=${POSTGRES_USER:-bpmn_properties};Password=${POSTGRES_PASSWORD:-change-me-for-local-use}
+      Storage__ServiceUrl: http://object-storage:9000
+      Storage__Bucket: bpmn-properties
+      Storage__AccessKey: ${MINIO_ROOT_USER:-minio}
+      Storage__SecretKey: ${MINIO_ROOT_PASSWORD:-change-me-for-local-use}
+      Auth__JwtKey: ${AUTH_JWT_KEY:-change-me-gaia-bpmn-local-jwt-secret-key-min-32-chars}
+      Auth__JwtIssuer: ${AUTH_JWT_ISSUER:-gaia-bpmn-api}
+      Auth__JwtAudience: ${AUTH_JWT_AUDIENCE:-gaia-bpmn-desktop}
+      Auth__AdminUsername: ${AUTH_ADMIN_USERNAME:-admin}
+      Auth__AdminPassword: ${AUTH_ADMIN_PASSWORD:-admin123}
+      Auth__AdminDisplayName: ${AUTH_ADMIN_DISPLAY_NAME:-Administrador}
+      Cors__AllowedOrigins__0: ${SERVICE_URL_NGINX:-http://localhost}
+      Cors__AllowedOrigins__1: ${CORS_ALLOWED_ORIGIN_DEV:-http://localhost:5173}
+    depends_on:
+      db:
+        condition: service_healthy
+      object-storage:
+        condition: service_started
+    restart: unless-stopped
+
+  nginx:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
+      args:
+        VITE_API_URL: ""
+    container_name: gaia-bpmn-nginx
+    depends_on:
+      api:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  gaia-bpmn-db:
+  gaia-bpmn-storage:

@@ -1,6 +1,7 @@
 import { z } from "zod";
 
-const defaultApiUrl = "http://localhost:8080";
+const configuredApiUrl = (import.meta as ImportMeta & { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL;
+const defaultApiUrl = configuredApiUrl === undefined ? "http://localhost:8080" : configuredApiUrl.replace(/\/+$/, "");
 const authTokenStorageKey = "gaia.authToken";
 
 const processSchema = z.object({
