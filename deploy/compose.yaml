@@ -6,10 +6,7 @@ services:
     environment:
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__Postgres: Host=postgres;Database=${POSTGRES_DB:-bpmn_properties};Username=${POSTGRES_USER:-bpmn_properties};Password=${POSTGRES_PASSWORD:-change-me-for-local-use}
-      Storage__ServiceUrl: http://object-storage:9000
-      Storage__Bucket: bpmn-properties
-      Storage__AccessKey: ${MINIO_ROOT_USER:-minio}
-      Storage__SecretKey: ${MINIO_ROOT_PASSWORD:-change-me-for-local-use}
+      Storage__LocalPath: /app/storage
       Auth__JwtKey: ${AUTH_JWT_KEY:-change-me-gaia-bpmn-local-jwt-secret-key-min-32-chars}
       Auth__JwtIssuer: ${AUTH_JWT_ISSUER:-gaia-bpmn-api}
       Auth__JwtAudience: ${AUTH_JWT_AUDIENCE:-gaia-bpmn-desktop}
@@ -20,11 +17,11 @@ services:
       Cors__AllowedOrigins__1: ${CORS_ALLOWED_ORIGIN_ELECTRON:-null}
     ports:
       - "8080:8080"
+    volumes:
+      - api-storage:/app/storage
     depends_on:
       postgres:
         condition: service_healthy
-      object-storage:
-        condition: service_started
 
   postgres:
     image: postgres:16-alpine
@@ -45,18 +42,6 @@ services:
       timeout: 5s
       retries: 10
 
-  object-storage:
-    image: rustfs/rustfs:latest
-    command: server /data --address ":9000"
-    environment:
-      RUSTFS_ACCESS_KEY: ${MINIO_ROOT_USER:-minio}
-      RUSTFS_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-change-me-for-local-use}
-    ports:
-      - "${MINIO_PORT:-9000}:9000"
-      - "${MINIO_CONSOLE_PORT:-9001}:9001"
-    volumes:
-      - minio-data:/data
-
 volumes:
   postgres-data:
-  minio-data:
+  api-storage:

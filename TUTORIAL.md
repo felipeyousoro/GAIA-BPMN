@@ -1,6 +1,6 @@
 # Tutorial rápido
 
-## 1. Subir API, PostgreSQL e MinIO
+## 1. Subir API e PostgreSQL
 
 Na raiz do projeto:
 

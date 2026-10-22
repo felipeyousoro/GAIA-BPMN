@@ -2,7 +2,7 @@
 
 ## Decision
 
-Use a .NET 8 modular monolith with PostgreSQL, a future Electron/React client, and an S3-compatible storage abstraction. Authentication is configurable OIDC rather than a custom username/password protocol.
+Use a .NET 8 modular monolith with PostgreSQL, an Electron/React client, and a local file storage abstraction (`storage/` directory on the API server). Authentication is configurable JWT/OIDC rather than an ad-hoc protocol.
 
 ## Context
 

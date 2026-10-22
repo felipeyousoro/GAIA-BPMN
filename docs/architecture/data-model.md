@@ -2,13 +2,13 @@
 
 The initial schema is single-tenant and uses UTC timestamps.
 
-- `processes`: stable external process key, display metadata, original file name, and MinIO diagram object key.
+- `processes`: stable external process key, display metadata, original file name, and local storage diagram object key.
 - `bpmn_elements`: external element ID scoped by process.
-- `element_attachments`: private MinIO object metadata associated with a BPMN element.
+- `element_attachments`: private local file storage metadata associated with a BPMN element.
 - `property_definitions`: configurable property schema and applicability.
 - `property_options`: options for select properties.
 - `property_values`: one value per element and definition, stored as validated JSONB.
-- `users`: local user accounts with unique lowercase `Username`, `DisplayName`, PBKDF2-SHA256 `PasswordHash`, `Role` (`Admin` or `Guest`), and optional MinIO avatar metadata (`AvatarObjectKey`, `AvatarContentType`).
+- `users`: local user accounts with unique lowercase `Username`, `DisplayName`, PBKDF2-SHA256 `PasswordHash`, `Role` (`Admin` or `Guest`), and optional local storage avatar metadata (`AvatarObjectKey`, `AvatarContentType`).
 
 The unique constraint on `(process_id, external_element_id)` prevents accidental cross-process collisions. Property definitions use a stable key and a controlled data type enum. Property values are not a universal key/value store: the relational links and definition type provide integrity, while JSONB supports the different scalar and collection shapes.
 

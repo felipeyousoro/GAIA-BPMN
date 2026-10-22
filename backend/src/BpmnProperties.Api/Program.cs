@@ -5,7 +5,6 @@ using System.Text.Json;
 using BpmnProperties.Application;
 using BpmnProperties.Domain;
 using BpmnProperties.Infrastructure;
-using Amazon.S3;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.EntityFrameworkCore;
@@ -24,11 +23,7 @@ builder.Services.AddCors(options => options.AddPolicy("desktop", policy => polic
     .AllowAnyHeader().AllowAnyMethod().WithExposedHeaders("Content-Disposition")));
 builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres")
     ?? "Host=localhost;Database=bpmn_properties;Username=bpmn_properties;Password=change-me-for-local-use"));
-builder.Services.AddSingleton<IAmazonS3>(_ => new AmazonS3Client(
-    builder.Configuration["Storage:AccessKey"] ?? "minio",
-    builder.Configuration["Storage:SecretKey"] ?? "change-me-for-local-use",
-    new AmazonS3Config { ServiceURL = builder.Configuration["Storage:ServiceUrl"] ?? "http://localhost:9000", ForcePathStyle = true }));
-builder.Services.AddSingleton<IObjectStorage, S3ObjectStorage>();
+builder.Services.AddSingleton<IObjectStorage, LocalFileStorage>();
 
 var jwtKey = builder.Configuration["Auth:JwtKey"] ?? "change-me-gaia-bpmn-local-jwt-secret-key-min-32-chars";
 var jwtIssuer = builder.Configuration["Auth:JwtIssuer"] ?? "gaia-bpmn-api";
@@ -203,8 +198,15 @@ app.MapGet("/api/v1/users/{userId:guid}/avatar", async (Guid userId, AppDbContex
 {
     var user = await db.Users.AsNoTracking().SingleOrDefaultAsync(x => x.Id == userId, cancellationToken);
     if (user?.AvatarObjectKey is null) return Results.NotFound();
-    var stream = await storage.GetAsync(user.AvatarObjectKey, cancellationToken);
-    return Results.File(stream, user.AvatarContentType ?? "image/png");
+    try
+    {
+        var stream = await storage.GetAsync(user.AvatarObjectKey, cancellationToken);
+        return Results.File(stream, user.AvatarContentType ?? "image/png");
+    }
+    catch (FileNotFoundException)
+    {
+        return Results.NotFound();
+    }
 }).RequireAuthorization();
 
 var users = app.MapGroup("/api/v1/users").RequireAuthorization("AdminOnly");
@@ -352,8 +354,15 @@ processes.MapGet("/{processId:guid}/diagram", async (Guid processId, bool? downl
 {
     var process = await db.Processes.AsNoTracking().SingleOrDefaultAsync(x => x.Id == processId, cancellationToken);
     if (process?.DiagramObjectKey is null) return Results.NotFound();
-    var content = await storage.GetAsync(process.DiagramObjectKey, cancellationToken);
-    return Results.File(content, "application/xml", download == true ? process.FileName ?? "diagram.bpmn" : null);
+    try
+    {
+        var content = await storage.GetAsync(process.DiagramObjectKey, cancellationToken);
+        return Results.File(content, "application/xml", download == true ? process.FileName ?? "diagram.bpmn" : null);
+    }
+    catch (FileNotFoundException)
+    {
+        return Results.NotFound();
+    }
 });
 processes.MapGet("/{processId:guid}/tasks", async (Guid processId, AppDbContext db, CancellationToken cancellationToken) =>
 {
@@ -423,7 +432,14 @@ app.MapGet("/api/v1/attachments/{attachmentId:guid}/content", async (Guid attach
 {
     var attachment = await db.ElementAttachments.AsNoTracking().SingleOrDefaultAsync(x => x.Id == attachmentId, cancellationToken);
     if (attachment is null) return Results.NotFound();
-    return Results.File(await storage.GetAsync(attachment.ObjectKey, cancellationToken), attachment.ContentType, attachment.FileName);
+    try
+    {
+        return Results.File(await storage.GetAsync(attachment.ObjectKey, cancellationToken), attachment.ContentType, attachment.FileName);
+    }
+    catch (FileNotFoundException)
+    {
+        return Results.NotFound();
+    }
 }).RequireAuthorization();
 app.MapDelete("/api/v1/attachments/{attachmentId:guid}", async (Guid attachmentId, AppDbContext db, IObjectStorage storage, CancellationToken cancellationToken) =>
 {

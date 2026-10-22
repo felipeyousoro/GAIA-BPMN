@@ -31,8 +31,7 @@ Use the following technologies:
 - OpenAPI for API documentation
 
 ### File storage
-- S3-compatible object storage
-- Support local development with a suitable S3-compatible storage service
+- Local filesystem storage managed by the API (`storage/` directory with persistent Docker volume)
 - Encapsulate storage operations behind an application-owned abstraction so the provider can be changed without modifying business logic
 
 ### Development and deployment
@@ -86,10 +85,10 @@ The dependency direction must be explicit:
 
 - Domain contains business entities, value objects, and domain rules.
 - Application contains use cases, orchestration, validation, and application-level authorization.
-- Infrastructure implements persistence, object storage, and external service integrations.
+- Infrastructure implements persistence, file storage, and external service integrations.
 - API contains HTTP endpoints, middleware, request handling, and application composition.
 
-The Domain layer must not depend on ASP.NET Core, Entity Framework Core, object-storage SDKs, or UI code. Keep the architecture pragmatic and avoid unnecessary interfaces, repositories, projects, and abstractions.
+The Domain layer must not depend on ASP.NET Core, Entity Framework Core, file-storage implementations, or UI code. Keep the architecture pragmatic and avoid unnecessary interfaces, repositories, projects, and abstractions.
 
 ## 4. Core Functional Requirements
 
@@ -159,7 +158,7 @@ Users must be able to:
 - See upload progress and meaningful error messages.
 - Handle interrupted uploads and retries where appropriate.
 
-Store actual file contents in S3-compatible object storage, not in PostgreSQL.
+Store actual file contents in the API's local file storage directory (`storage/`), not in PostgreSQL.
 
 Store metadata in PostgreSQL, including:
 
@@ -178,7 +177,7 @@ Use private storage by default. Never trust user-provided filenames, MIME types,
 
 Authorize every upload, download, and deletion on the backend. Never expose permanent storage credentials in the desktop application.
 
-Use a consistent strategy for handling failures between database transactions and object-storage operations. Document cleanup, retries, and orphaned-file handling.
+Use a consistent strategy for handling failures between database transactions and file-storage operations. Document cleanup, retries, and orphaned-file handling.
 
 ### 4.4 Authentication and authorization
 
@@ -418,7 +417,7 @@ Do not optimize for an arbitrary test-coverage percentage. Prioritize correctnes
 
 ## 10. Deployment and Configuration
 
-Provide Docker Compose for local development, including PostgreSQL, the backend API, and an S3-compatible storage service.
+Provide Docker Compose for local development, including PostgreSQL and the backend API with a persistent storage volume.
 
 Provide:
 
@@ -434,7 +433,7 @@ Provide:
 
 Do not assume that local development configuration is production-ready.
 
-Document TLS, secret management, storage permissions, database backups, recovery procedures, and object-storage lifecycle policies.
+Document TLS, secret management, storage permissions, database backups, recovery procedures, and file-storage lifecycle policies.
 
 ## 11. Documentation
 
@@ -474,7 +473,7 @@ Work in small, verifiable increments.
 - Implement API documentation and integration tests.
 
 ### Phase 3: File storage
-- Implement the object-storage abstraction.
+- Implement the local file-storage abstraction.
 - Implement secure upload, download, and deletion.
 - Persist attachment metadata and associations.
 - Test authorization, file validation, storage failures, and cleanup.
@@ -503,7 +502,7 @@ Produce:
 1. A documented architecture and repository structure.
 2. A working backend with PostgreSQL persistence.
 3. A working desktop application.
-4. Secure file upload and download through S3-compatible storage.
+4. Secure file upload and download through local API storage.
 5. Dynamic custom property definitions and editors.
 6. API documentation and integration contracts.
 7. Database migrations.
