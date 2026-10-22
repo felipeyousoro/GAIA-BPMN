@@ -11,7 +11,7 @@ The application does not rewrite BPMN XML. Imported BPMN files are treated as re
 - Local JWT authentication and Role-Based Access Control (`Admin` / Mestre vs `Guest` / Convidado).
 - Default master user seeded on first startup (`admin` / `admin123`, configurable via `Auth__AdminUsername` and `Auth__AdminPassword`).
 - Profile and Settings page with avatar upload to MinIO, display name & password management, API URL configuration, and Admin user management (create users, reset passwords, remove guests).
-- Visual identity redesigned following the Apucarana TI design system.
+- Desktop visual identity under the GAIA BPMN name.
 - The initial attachment upload path uses private S3-compatible storage through MinIO.
 - The desktop client imports BPMN XML read-only and lets `Admin` users edit task `Input`/`Output` and attachments while `Guest` users have read-only access (view and download).
 - Audit history and signed desktop packaging remain out of scope for this delivery.

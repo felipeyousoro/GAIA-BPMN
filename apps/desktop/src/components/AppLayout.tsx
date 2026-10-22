@@ -61,17 +61,17 @@ export function AppLayout({
   ];
 
   return (
-    <div className="apucarana-shell">
-      <aside className="apucarana-sidebar">
-        <div className="apucarana-brand">
-          <div className="apucarana-bars" aria-hidden="true">
-            <div className="apucarana-bar-left" />
-            <div className="apucarana-bar-right" />
+    <div className="gaia-shell">
+      <aside className="gaia-sidebar">
+        <div className="gaia-brand">
+          <div className="gaia-bars" aria-hidden="true">
+            <div className="gaia-bar-left" />
+            <div className="gaia-bar-right" />
           </div>
-          <div className="apucarana-brand-title">GAIA BPMN</div>
+          <div className="gaia-brand-title">GAIA BPMN</div>
         </div>
 
-        <nav className="apucarana-nav">
+        <nav className="gaia-nav">
           {navItems.map(item => {
             const active = activeSection === item.id;
             return (
@@ -79,31 +79,31 @@ export function AppLayout({
                 key={item.id}
                 type="button"
                 onClick={() => onNavigate(item.id)}
-                className={`apucarana-nav-pill ${active ? "active" : ""}`}
+                className={`gaia-nav-pill ${active ? "active" : ""}`}
               >
-                <span className="apucarana-nav-label">{item.label}</span>
-                <span className="apucarana-nav-indicator">{active ? "●" : "→"}</span>
+                <span className="gaia-nav-label">{item.label}</span>
+                <span className="gaia-nav-indicator">{active ? "●" : "→"}</span>
               </button>
             );
           })}
         </nav>
 
-        <div className="apucarana-sidebar-footer">
-          <div className="apucarana-footer-badge">
-            <span className="apucarana-footer-title">GAIA BPMN</span>
-            <small>Identidade Apucarana TI</small>
+        <div className="gaia-sidebar-footer">
+          <div className="gaia-footer-badge">
+            <span className="gaia-footer-title">GAIA BPMN</span>
+            <small>Gestão de Processos</small>
           </div>
         </div>
       </aside>
 
-      <div className="apucarana-main-area">
-        <header className="apucarana-header">
-          <div className="apucarana-header-left">
-            <h1 className="apucarana-page-title">{title}</h1>
-            {headerActions && <div className="apucarana-header-actions">{headerActions}</div>}
+      <div className="gaia-main-area">
+        <header className="gaia-header">
+          <div className="gaia-header-left">
+            <h1 className="gaia-page-title">{title}</h1>
+            {headerActions && <div className="gaia-header-actions">{headerActions}</div>}
           </div>
 
-          <div className="apucarana-user-box">
+          <div className="gaia-user-box">
             <span className={`role-badge ${user.role === "Admin" ? "role-admin" : "role-guest"}`}>
               {user.role === "Admin" ? "Mestre" : "Convidado"}
             </span>
@@ -123,7 +123,7 @@ export function AppLayout({
           </div>
         </header>
 
-        <main className="apucarana-content">{children}</main>
+        <main className="gaia-content">{children}</main>
       </div>
     </div>
   );
