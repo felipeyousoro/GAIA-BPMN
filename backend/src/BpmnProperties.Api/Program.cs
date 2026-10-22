@@ -1,3 +1,5 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using BpmnProperties.Application;
@@ -7,6 +9,7 @@ using Amazon.S3;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddProblemDetails();
@@ -20,24 +23,37 @@ builder.Services.AddCors(options => options.AddPolicy("desktop", policy => polic
     .SetIsOriginAllowed(origin => allowedOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase))
     .AllowAnyHeader().AllowAnyMethod().WithExposedHeaders("Content-Disposition")));
 builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres")
-    ?? "Host=localhost;Database=bpmn_properties;Username=bpmn_properties;******"));
+    ?? "Host=localhost;Database=bpmn_properties;Username=bpmn_properties;Password=change-me-for-local-use"));
 builder.Services.AddSingleton<IAmazonS3>(_ => new AmazonS3Client(
     builder.Configuration["Storage:AccessKey"] ?? "minio",
     builder.Configuration["Storage:SecretKey"] ?? "change-me-for-local-use",
     new AmazonS3Config { ServiceURL = builder.Configuration["Storage:ServiceUrl"] ?? "http://localhost:9000", ForcePathStyle = true }));
 builder.Services.AddSingleton<IObjectStorage, S3ObjectStorage>();
 
-var authority = builder.Configuration["Authentication:Authority"];
-if (!string.IsNullOrWhiteSpace(authority))
+var jwtKey = builder.Configuration["Auth:JwtKey"] ?? "change-me-gaia-bpmn-local-jwt-secret-key-min-32-chars";
+var jwtIssuer = builder.Configuration["Auth:JwtIssuer"] ?? "gaia-bpmn-api";
+var jwtAudience = builder.Configuration["Auth:JwtAudience"] ?? "gaia-bpmn-desktop";
+var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
 {
-    builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
+    options.TokenValidationParameters = new TokenValidationParameters
     {
-        options.Authority = authority;
-        options.Audience = builder.Configuration["Authentication:Audience"];
-        options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
-    });
-    builder.Services.AddAuthorization();
-}
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = signingKey,
+        ValidateIssuer = true,
+        ValidIssuer = jwtIssuer,
+        ValidateAudience = true,
+        ValidAudience = jwtAudience,
+        ValidateLifetime = true,
+        ClockSkew = TimeSpan.FromMinutes(2),
+        NameClaimType = ClaimTypes.Name,
+        RoleClaimType = ClaimTypes.Role
+    };
+});
+
+builder.Services.AddAuthorizationBuilder()
+    .AddPolicy("AdminOnly", policy => policy.RequireAuthenticatedUser().RequireRole(UserRole.Admin.ToString()));
 
 var app = builder.Build();
 
@@ -84,15 +100,181 @@ if (app.Environment.IsDevelopment())
 }
 app.UseCors("desktop");
 if (!app.Environment.IsDevelopment()) app.UseHttpsRedirection();
-if (!string.IsNullOrWhiteSpace(authority))
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapGet("/health", () => Results.Ok(new { status = "ok" })).WithName("Health").AllowAnonymous();
+
+var auth = app.MapGroup("/api/v1/auth");
+auth.MapPost("/login", async (LoginRequest request, AppDbContext db, CancellationToken cancellationToken) =>
 {
-    app.UseAuthentication();
-    app.UseAuthorization();
-}
+    if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrEmpty(request.Password))
+        return Results.BadRequest("Usuário e senha são obrigatórios.");
 
-app.MapGet("/health", () => Results.Ok(new { status = "ok" })).WithName("Health");
+    var normalizedUsername = request.Username.Trim().ToLowerInvariant();
+    var user = await db.Users.AsNoTracking().SingleOrDefaultAsync(x => x.Username == normalizedUsername, cancellationToken);
+    if (user is null || !PasswordHasher.Verify(request.Password, user.PasswordHash))
+        return Results.Problem(title: "Credenciais inválidas", detail: "Usuário ou senha incorretos.", statusCode: StatusCodes.Status401Unauthorized);
 
-var processes = app.MapGroup("/api/v1/processes");
+    var claims = new[]
+    {
+        new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+        new Claim(ClaimTypes.Name, user.Username),
+        new Claim(ClaimTypes.Role, user.Role.ToString()),
+        new Claim("display_name", user.DisplayName)
+    };
+    var credentials = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);
+    var token = new JwtSecurityToken(
+        issuer: jwtIssuer,
+        audience: jwtAudience,
+        claims: claims,
+        expires: DateTime.UtcNow.AddDays(7),
+        signingCredentials: credentials);
+    var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
+
+    return Results.Ok(new LoginResponse(tokenString, ToUserResponse(user)));
+}).AllowAnonymous();
+
+var me = app.MapGroup("/api/v1/me").RequireAuthorization();
+me.MapGet("/", async (ClaimsPrincipal principal, AppDbContext db, CancellationToken cancellationToken) =>
+{
+    var userId = GetCurrentUserId(principal);
+    if (userId is null) return Results.Unauthorized();
+    var user = await db.Users.AsNoTracking().SingleOrDefaultAsync(x => x.Id == userId.Value, cancellationToken);
+    return user is null ? Results.Unauthorized() : Results.Ok(ToUserResponse(user));
+});
+
+me.MapPut("/", async (UpdateProfileRequest request, ClaimsPrincipal principal, AppDbContext db, CancellationToken cancellationToken) =>
+{
+    if (string.IsNullOrWhiteSpace(request.DisplayName))
+        return Results.BadRequest("O nome de exibição é obrigatório.");
+
+    var userId = GetCurrentUserId(principal);
+    if (userId is null) return Results.Unauthorized();
+    var user = await db.Users.SingleOrDefaultAsync(x => x.Id == userId.Value, cancellationToken);
+    if (user is null) return Results.Unauthorized();
+
+    user.UpdateProfile(request.DisplayName);
+    await db.SaveChangesAsync(cancellationToken);
+    return Results.Ok(ToUserResponse(user));
+});
+
+me.MapPut("/password", async (ChangePasswordRequest request, ClaimsPrincipal principal, AppDbContext db, CancellationToken cancellationToken) =>
+{
+    if (string.IsNullOrEmpty(request.CurrentPassword) || string.IsNullOrWhiteSpace(request.NewPassword) || request.NewPassword.Length < 6)
+        return Results.BadRequest("A nova senha deve ter no mínimo 6 caracteres.");
+
+    var userId = GetCurrentUserId(principal);
+    if (userId is null) return Results.Unauthorized();
+    var user = await db.Users.SingleOrDefaultAsync(x => x.Id == userId.Value, cancellationToken);
+    if (user is null) return Results.Unauthorized();
+
+    if (!PasswordHasher.Verify(request.CurrentPassword, user.PasswordHash))
+        return Results.BadRequest("A senha atual informada está incorreta.");
+
+    user.SetPasswordHash(PasswordHasher.Hash(request.NewPassword));
+    await db.SaveChangesAsync(cancellationToken);
+    return Results.NoContent();
+});
+
+me.MapPost("/avatar", async (HttpRequest request, ClaimsPrincipal principal, AppDbContext db, IObjectStorage storage, CancellationToken cancellationToken) =>
+{
+    var userId = GetCurrentUserId(principal);
+    if (userId is null) return Results.Unauthorized();
+    var user = await db.Users.SingleOrDefaultAsync(x => x.Id == userId.Value, cancellationToken);
+    if (user is null) return Results.Unauthorized();
+
+    var form = await request.ReadFormAsync(cancellationToken);
+    var file = form.Files.SingleOrDefault();
+    var allowedTypes = new[] { "image/png", "image/jpeg", "image/webp" };
+    if (file is null || file.Length <= 0 || file.Length > 5 * 1024 * 1024 || !allowedTypes.Contains(file.ContentType, StringComparer.OrdinalIgnoreCase))
+        return Results.BadRequest("Envie uma imagem PNG, JPEG ou WEBP de até 5 MB.");
+
+    var key = $"avatars/{user.Id}";
+    await using var stream = file.OpenReadStream();
+    await storage.PutAsync(key, stream, file.ContentType, cancellationToken);
+    user.SetAvatar(key, file.ContentType);
+    await db.SaveChangesAsync(cancellationToken);
+
+    return Results.Ok(ToUserResponse(user));
+}).DisableAntiforgery();
+
+app.MapGet("/api/v1/users/{userId:guid}/avatar", async (Guid userId, AppDbContext db, IObjectStorage storage, CancellationToken cancellationToken) =>
+{
+    var user = await db.Users.AsNoTracking().SingleOrDefaultAsync(x => x.Id == userId, cancellationToken);
+    if (user?.AvatarObjectKey is null) return Results.NotFound();
+    var stream = await storage.GetAsync(user.AvatarObjectKey, cancellationToken);
+    return Results.File(stream, user.AvatarContentType ?? "image/png");
+}).RequireAuthorization();
+
+var users = app.MapGroup("/api/v1/users").RequireAuthorization("AdminOnly");
+users.MapGet("/", async (AppDbContext db, CancellationToken cancellationToken) =>
+{
+    var list = await db.Users.AsNoTracking()
+        .OrderBy(x => x.DisplayName)
+        .ThenBy(x => x.Username)
+        .ToListAsync(cancellationToken);
+    return Results.Ok(list.Select(ToUserResponse));
+});
+
+users.MapPost("/", async (CreateUserRequest request, AppDbContext db, CancellationToken cancellationToken) =>
+{
+    if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.DisplayName) || string.IsNullOrWhiteSpace(request.Password) || request.Password.Length < 6)
+        return Results.BadRequest("Usuário, nome de exibição e senha (mínimo 6 caracteres) são obrigatórios.");
+
+    var normalizedUsername = request.Username.Trim().ToLowerInvariant();
+    if (await db.Users.AnyAsync(x => x.Username == normalizedUsername, cancellationToken))
+        return Results.Conflict("Já existe um usuário com este login.");
+
+    if (!Enum.TryParse<UserRole>(request.Role, true, out var role))
+        role = UserRole.Guest;
+
+    var user = new User(normalizedUsername, request.DisplayName, PasswordHasher.Hash(request.Password), role);
+    db.Users.Add(user);
+    await db.SaveChangesAsync(cancellationToken);
+    return Results.Created($"/api/v1/users/{user.Id}", ToUserResponse(user));
+});
+
+users.MapPost("/{userId:guid}/reset-password", async (Guid userId, ResetPasswordRequest request, AppDbContext db, CancellationToken cancellationToken) =>
+{
+    if (string.IsNullOrWhiteSpace(request.NewPassword) || request.NewPassword.Length < 6)
+        return Results.BadRequest("A nova senha deve ter no mínimo 6 caracteres.");
+
+    var user = await db.Users.SingleOrDefaultAsync(x => x.Id == userId, cancellationToken);
+    if (user is null) return Results.NotFound();
+
+    user.SetPasswordHash(PasswordHasher.Hash(request.NewPassword));
+    await db.SaveChangesAsync(cancellationToken);
+    return Results.NoContent();
+});
+
+users.MapDelete("/{userId:guid}", async (Guid userId, ClaimsPrincipal principal, AppDbContext db, IObjectStorage storage, CancellationToken cancellationToken) =>
+{
+    var currentUserId = GetCurrentUserId(principal);
+    if (currentUserId == userId)
+        return Results.BadRequest("Não é permitido excluir o próprio usuário logado.");
+
+    var user = await db.Users.SingleOrDefaultAsync(x => x.Id == userId, cancellationToken);
+    if (user is null) return Results.NotFound();
+
+    if (user.AvatarObjectKey is not null)
+    {
+        try
+        {
+            await storage.DeleteAsync(user.AvatarObjectKey, cancellationToken);
+        }
+        catch
+        {
+            // Ignore avatar deletion failure when removing user
+        }
+    }
+
+    db.Users.Remove(user);
+    await db.SaveChangesAsync(cancellationToken);
+    return Results.NoContent();
+});
+
+var processes = app.MapGroup("/api/v1/processes").RequireAuthorization();
 processes.MapGet("/", async (AppDbContext db, CancellationToken cancellationToken) =>
 {
     var result = await db.Processes.AsNoTracking().OrderByDescending(x => x.UpdatedAt)
@@ -144,14 +326,14 @@ processes.MapPost("/import", async (HttpRequest request, AppDbContext db, IObjec
     await using var xml = new MemoryStream(Encoding.UTF8.GetBytes(BpmnXml.Serialize(parsed.Xml)));
     await storage.PutAsync(key, xml, "application/xml", cancellationToken);
     return Results.Ok(new ProcessResponse(process.Id, process.ExternalKey, process.Name, process.FileName, process.UpdatedAt, parsed.Tasks.Count));
-}).DisableAntiforgery();
+}).DisableAntiforgery().RequireAuthorization("AdminOnly");
 processes.MapPost("/", async (CreateProcessRequest request, AppDbContext db, CancellationToken cancellationToken) =>
 {
     var process = new Process(request.ExternalKey, request.Name);
     db.Processes.Add(process);
     await db.SaveChangesAsync(cancellationToken);
     return Results.Created($"/api/v1/processes/{process.Id}", new ProcessResponse(process.Id, process.ExternalKey, process.Name, process.FileName, process.UpdatedAt, 0));
-});
+}).RequireAuthorization("AdminOnly");
 processes.MapGet("/{processId:guid}/elements", async (Guid processId, AppDbContext db, CancellationToken cancellationToken) =>
 {
     if (!await db.Processes.AnyAsync(x => x.Id == processId, cancellationToken)) return Results.NotFound();
@@ -165,7 +347,7 @@ processes.MapPost("/{processId:guid}/elements", async (Guid processId, CreateEle
     db.Elements.Add(element);
     await db.SaveChangesAsync(cancellationToken);
     return Results.Created($"/api/v1/elements/{element.Id}", new ElementResponse(element.Id, element.ProcessId, element.ExternalElementId, element.ElementType, element.Name));
-});
+}).RequireAuthorization("AdminOnly");
 processes.MapGet("/{processId:guid}/diagram", async (Guid processId, bool? download, AppDbContext db, IObjectStorage storage, CancellationToken cancellationToken) =>
 {
     var process = await db.Processes.AsNoTracking().SingleOrDefaultAsync(x => x.Id == processId, cancellationToken);
@@ -209,9 +391,9 @@ processes.MapPut("/{processId:guid}/tasks", async (Guid processId, SaveTasksRequ
     await storage.PutAsync(process.DiagramObjectKey, output, "application/xml", cancellationToken);
     await transaction.CommitAsync(cancellationToken);
     return Results.NoContent();
-});
+}).RequireAuthorization("AdminOnly");
 
-var elements = app.MapGroup("/api/v1/elements");
+var elements = app.MapGroup("/api/v1/elements").RequireAuthorization();
 elements.MapPost("/{elementId:guid}/attachments", async (Guid elementId, HttpRequest request, AppDbContext db, IObjectStorage storage, CancellationToken cancellationToken) =>
 {
     if (!await db.Elements.AnyAsync(x => x.Id == elementId, cancellationToken)) return Results.NotFound();
@@ -230,7 +412,7 @@ elements.MapPost("/{elementId:guid}/attachments", async (Guid elementId, HttpReq
     }
     await db.SaveChangesAsync(cancellationToken);
     return Results.Ok(result);
-}).DisableAntiforgery();
+}).DisableAntiforgery().RequireAuthorization("AdminOnly");
 elements.MapGet("/{elementId:guid}/attachments", async (Guid elementId, AppDbContext db, CancellationToken cancellationToken) =>
 {
     if (!await db.Elements.AnyAsync(x => x.Id == elementId, cancellationToken)) return Results.NotFound();
@@ -242,7 +424,7 @@ app.MapGet("/api/v1/attachments/{attachmentId:guid}/content", async (Guid attach
     var attachment = await db.ElementAttachments.AsNoTracking().SingleOrDefaultAsync(x => x.Id == attachmentId, cancellationToken);
     if (attachment is null) return Results.NotFound();
     return Results.File(await storage.GetAsync(attachment.ObjectKey, cancellationToken), attachment.ContentType, attachment.FileName);
-});
+}).RequireAuthorization();
 app.MapDelete("/api/v1/attachments/{attachmentId:guid}", async (Guid attachmentId, AppDbContext db, IObjectStorage storage, CancellationToken cancellationToken) =>
 {
     var attachment = await db.ElementAttachments.SingleOrDefaultAsync(x => x.Id == attachmentId, cancellationToken);
@@ -251,9 +433,9 @@ app.MapDelete("/api/v1/attachments/{attachmentId:guid}", async (Guid attachmentI
     db.ElementAttachments.Remove(attachment);
     await db.SaveChangesAsync(cancellationToken);
     return Results.NoContent();
-});
+}).RequireAuthorization("AdminOnly");
 
-var definitions = app.MapGroup("/api/v1/property-definitions");
+var definitions = app.MapGroup("/api/v1/property-definitions").RequireAuthorization();
 definitions.MapGet("/", async (Guid? processId, AppDbContext db, CancellationToken cancellationToken) =>
 {
     var query = db.PropertyDefinitions.AsNoTracking().Where(x => x.IsActive);
@@ -270,7 +452,7 @@ definitions.MapPost("/", async (CreatePropertyDefinitionRequest request, AppDbCo
     db.PropertyDefinitions.Add(definition);
     await db.SaveChangesAsync(cancellationToken);
     return Results.Created($"/api/v1/property-definitions/{definition.Id}", new PropertyDefinitionResponse(definition.Id, definition.ProcessId, definition.Key, definition.DisplayName, definition.Description, definition.DataType, definition.IsRequired, definition.IsActive, definition.DisplayOrder, request.DefaultValue));
-});
+}).RequireAuthorization("AdminOnly");
 elements.MapGet("/{elementId:guid}/properties", async (Guid elementId, AppDbContext db, CancellationToken cancellationToken) =>
 {
     if (!await db.Elements.AnyAsync(x => x.Id == elementId, cancellationToken)) return Results.NotFound();
@@ -289,7 +471,16 @@ elements.MapPut("/{elementId:guid}/properties/{propertyId:guid}", async (Guid el
     else value.Update(request.Value.GetRawText());
     await db.SaveChangesAsync(cancellationToken);
     return Results.NoContent();
-});
+}).RequireAuthorization("AdminOnly");
+
+static Guid? GetCurrentUserId(ClaimsPrincipal principal)
+{
+    var raw = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+    return Guid.TryParse(raw, out var id) ? id : null;
+}
+
+static UserResponse ToUserResponse(User user) =>
+    new(user.Id, user.Username, user.DisplayName, user.Role.ToString(), !string.IsNullOrWhiteSpace(user.AvatarObjectKey), user.CreatedAt);
 
 static string? ReadValue(BpmnElement element, Guid? definitionId) =>
     definitionId.HasValue

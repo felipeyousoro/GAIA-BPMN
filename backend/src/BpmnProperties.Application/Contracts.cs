@@ -23,3 +23,12 @@ public sealed record SaveTaskValue(string ExternalElementId, string? Input, stri
 public sealed record SaveTasksRequest(IReadOnlyList<SaveTaskValue> Tasks);
 public sealed record PropertyDefinitionResponse(Guid Id, Guid? ProcessId, string Key, string DisplayName, string? Description, PropertyDataType DataType, bool IsRequired, bool IsActive, int DisplayOrder, JsonElement? DefaultValue);
 public sealed record PropertyValueResponse(Guid PropertyDefinitionId, JsonElement Value, DateTimeOffset UpdatedAt);
+
+public sealed record LoginRequest(string Username, string Password);
+public sealed record UserResponse(Guid Id, string Username, string DisplayName, string Role, bool HasAvatar, DateTimeOffset CreatedAt);
+public sealed record LoginResponse(string Token, UserResponse User);
+public sealed record UpdateProfileRequest(string DisplayName);
+public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
+public sealed record CreateUserRequest(string Username, string DisplayName, string Password, string Role);
+public sealed record ResetPasswordRequest(string NewPassword);
+
