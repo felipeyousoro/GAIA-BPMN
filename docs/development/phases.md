@@ -14,10 +14,10 @@ The BPMN viewer is read-only for diagram editing. The API preserves the source X
 ## Improvement roadmap
 
 - [x] Phase 0: functional contract, inventory reference, vocabulary, permissions, and acceptance criteria
-- [ ] Phase 1: organizational model and safe legacy migration
-- [ ] Phase 2: BPMN element metadata contract
-- [ ] Phase 3: immediate attachment upload and lifecycle
-- [ ] Phase 4: authenticated PDF printing
+- [x] Phase 1: organizational model and safe legacy migration
+- [x] Phase 2: BPMN element metadata contract
+- [x] Phase 3: immediate attachment upload and lifecycle
+- [x] Phase 4: authenticated PDF printing
 - [ ] Phase 5: organizational API and catalog screens
 - [ ] Phase 6: element editing experience
 - [ ] Phase 7: security, performance, and operations hardening
