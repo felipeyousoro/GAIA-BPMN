@@ -21,7 +21,7 @@ The BPMN viewer is read-only for diagram editing. The API preserves the source X
 - [ ] Phase 5: organizational API and catalog screens
 - [x] Phase 6: element editing experience
 - [x] Phase 7: security, performance, and operations hardening
-- [ ] Phase 8: automated validation, assisted migration, and rollout
+- [x] Phase 8: automated validation, assisted migration, and rollout
 
 The approved Phase 0 contract is recorded in
 `docs/decisions/0002-improvement-functional-contract.md`.

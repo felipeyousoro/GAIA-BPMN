@@ -56,6 +56,34 @@ public sealed class PropertyTests
     }
 
     [Fact]
+    public void OrganizationalEntitiesRequireValidNamesAndPreserveHierarchy()
+    {
+        var organization = new Organization("  Saúde  ", "SAUDE");
+        var suborganization = new Suborganization(organization.Id, "  Vigilância  ", "VIG");
+
+        Assert.Equal("Saúde", organization.Name);
+        Assert.Equal("SAUDE", organization.Code);
+        Assert.Equal(organization.Id, suborganization.OrganizationId);
+        Assert.Equal("Vigilância", suborganization.Name);
+    }
+
+    [Fact]
+    public void ElementMetadataNormalizesOptionalFields()
+    {
+        var element = new BpmnElement(Guid.NewGuid(), "Task_1", "task", "Review");
+
+        element.UpdateMetadata("  Description  ", "  People and system  ", "  Follow the checklist  ");
+
+        Assert.Equal("Description", element.Description);
+        Assert.Equal("People and system", element.Resources);
+        Assert.Equal("Follow the checklist", element.Instructions);
+        element.UpdateMetadata(" ", null, "");
+        Assert.Null(element.Description);
+        Assert.Null(element.Resources);
+        Assert.Null(element.Instructions);
+    }
+
+    [Fact]
     public void RequiredPropertyRejectsNull()
     {
         var definition = new PropertyDefinition(null, "description", "Description", PropertyDataType.Text);
