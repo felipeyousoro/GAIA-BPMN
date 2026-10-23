@@ -347,9 +347,9 @@ processes.MapPost("/import", async (HttpRequest request, AppDbContext db, IObjec
         return Results.BadRequest("Exactly one non-empty .bpmn file up to 10 MB is required.");
     Guid? requestedSuborganizationId = null;
     if (form.TryGetValue("suborganizationId", out var suborganizationValue) &&
-        !string.IsNullOrWhiteSpace(suborganizationValue))
+        !string.IsNullOrWhiteSpace(suborganizationValue.ToString()))
     {
-        if (!Guid.TryParse(suborganizationValue, out var parsedSuborganizationId))
+        if (!Guid.TryParse(suborganizationValue.ToString(), out var parsedSuborganizationId))
             return Results.BadRequest("suborganizationId must be a valid UUID.");
         requestedSuborganizationId = parsedSuborganizationId;
     }
@@ -563,7 +563,10 @@ app.MapGet("/api/v1/attachments/{attachmentId:guid}/content", async (Guid attach
     if (attachment is null) return Results.NotFound();
     try
     {
-        var content = await storage.GetAsync(attachment.ObjectKey, cancellationToken);
+        await using var storedContent = await storage.GetAsync(attachment.ObjectKey, cancellationToken);
+        using var buffer = new MemoryStream();
+        await storedContent.CopyToAsync(buffer, cancellationToken);
+        var content = buffer.ToArray();
         var isPdf = attachment.ContentType.Equals("application/pdf", StringComparison.OrdinalIgnoreCase)
             && content.Length >= 5
             && content[0] == 0x25 && content[1] == 0x50 && content[2] == 0x44 && content[3] == 0x46 && content[4] == 0x2D;
