@@ -278,8 +278,9 @@ users.MapDelete("/{userId:guid}", async (Guid userId, ClaimsPrincipal principal,
 
 var processes = app.MapGroup("/api/v1/processes").RequireAuthorization();
 var organizations = app.MapGroup("/api/v1/organizations").RequireAuthorization();
-organizations.MapGet("/", async (AppDbContext db, CancellationToken cancellationToken) =>
+organizations.MapGet("/", async (int? pageSize, AppDbContext db, CancellationToken cancellationToken) =>
     Results.Ok(await db.Organizations.AsNoTracking().OrderBy(x => x.Name)
+        .Take(Math.Clamp(pageSize ?? 100, 1, 100))
         .Select(x => new OrganizationResponse(x.Id, x.Name, x.Code, x.IsActive))
         .ToListAsync(cancellationToken)));
 organizations.MapGet("/{organizationId:guid}/suborganizations", async (Guid organizationId, AppDbContext db, CancellationToken cancellationToken) =>
@@ -328,9 +329,10 @@ organizations.MapPut("/{organizationId:guid}/suborganizations/{suborganizationId
         suborganization.Id, suborganization.OrganizationId, suborganization.Name, suborganization.Code, suborganization.IsActive));
 }).RequireAuthorization("AdminOnly");
 });
-processes.MapGet("/", async (AppDbContext db, CancellationToken cancellationToken) =>
+processes.MapGet("/", async (int? pageSize, AppDbContext db, CancellationToken cancellationToken) =>
 {
     var result = await db.Processes.AsNoTracking().OrderByDescending(x => x.UpdatedAt)
+        .Take(Math.Clamp(pageSize ?? 100, 1, 100))
         .Select(x => new ProcessResponse(
             x.Id, x.ExternalKey, x.Name, x.FileName, x.UpdatedAt, x.Elements.Count,
             x.SuborganizationId, x.Suborganization.OrganizationId, x.Suborganization.Organization.Name, x.Suborganization.Name))
@@ -420,7 +422,7 @@ processes.MapPost("/", async (CreateProcessRequest request, AppDbContext db, Can
         process.Id, process.ExternalKey, process.Name, process.FileName, process.UpdatedAt, 0,
         process.SuborganizationId, suborganization.OrganizationId, suborganization.Organization.Name, suborganization.Name));
 }).RequireAuthorization("AdminOnly");
-processes.MapPut("/{processId:guid}/organization", async (Guid processId, TransferProcessRequest request, AppDbContext db, CancellationToken cancellationToken) =>
+processes.MapPut("/{processId:guid}/organization", async (Guid processId, TransferProcessRequest request, AppDbContext db, ILogger<Program> logger, CancellationToken cancellationToken) =>
 {
     var process = await db.Processes.SingleOrDefaultAsync(x => x.Id == processId, cancellationToken);
     var suborganization = await db.Suborganizations.Include(x => x.Organization)
@@ -429,6 +431,7 @@ processes.MapPut("/{processId:guid}/organization", async (Guid processId, Transf
     if (!suborganization.IsActive || !suborganization.Organization.IsActive) return Results.BadRequest("Target suborganization is inactive.");
     process.AssignToSuborganization(suborganization.Id);
     await db.SaveChangesAsync(cancellationToken);
+    logger.LogInformation("Process {ProcessId} transferred to suborganization {SuborganizationId}.", processId, request.SuborganizationId);
     return Results.NoContent();
 }).RequireAuthorization("AdminOnly");
 processes.MapGet("/{processId:guid}/elements", async (Guid processId, AppDbContext db, CancellationToken cancellationToken) =>
@@ -505,7 +508,7 @@ processes.MapPut("/{processId:guid}/tasks", async (Guid processId, SaveTasksRequ
 }).RequireAuthorization("AdminOnly");
 
 var elements = app.MapGroup("/api/v1/elements").RequireAuthorization();
-elements.MapPost("/{elementId:guid}/attachments", async (Guid elementId, HttpRequest request, AppDbContext db, IObjectStorage storage, CancellationToken cancellationToken) =>
+elements.MapPost("/{elementId:guid}/attachments", async (Guid elementId, HttpRequest request, AppDbContext db, IObjectStorage storage, ILogger<Program> logger, CancellationToken cancellationToken) =>
 {
     if (!await db.Elements.AnyAsync(x => x.Id == elementId, cancellationToken)) return Results.NotFound();
     var form = await request.ReadFormAsync(cancellationToken);
@@ -537,6 +540,7 @@ elements.MapPost("/{elementId:guid}/attachments", async (Guid elementId, HttpReq
             var attachment = new ElementAttachment(elementId, key, Path.GetFileName(file.FileName), file.ContentType!, file.Length);
             db.ElementAttachments.Add(attachment);
             await db.SaveChangesAsync(cancellationToken);
+            logger.LogInformation("Attachment {AttachmentId} uploaded for element {ElementId}, size {Size}.", attachment.Id, elementId, file.Length);
             result.Add(new AttachmentResponse(attachment.Id, attachment.FileName, attachment.ContentType, attachment.Size, attachment.CreatedAt));
         }
         catch
@@ -572,13 +576,14 @@ app.MapGet("/api/v1/attachments/{attachmentId:guid}/content", async (Guid attach
         return Results.NotFound();
     }
 }).RequireAuthorization();
-app.MapDelete("/api/v1/attachments/{attachmentId:guid}", async (Guid attachmentId, AppDbContext db, IObjectStorage storage, CancellationToken cancellationToken) =>
+app.MapDelete("/api/v1/attachments/{attachmentId:guid}", async (Guid attachmentId, AppDbContext db, IObjectStorage storage, ILogger<Program> logger, CancellationToken cancellationToken) =>
 {
     var attachment = await db.ElementAttachments.SingleOrDefaultAsync(x => x.Id == attachmentId, cancellationToken);
     if (attachment is null) return Results.NotFound();
     await storage.DeleteAsync(attachment.ObjectKey, cancellationToken);
     db.ElementAttachments.Remove(attachment);
     await db.SaveChangesAsync(cancellationToken);
+    logger.LogInformation("Attachment {AttachmentId} removed.", attachmentId);
     return Results.NoContent();
 }).RequireAuthorization("AdminOnly");
 
