@@ -7,6 +7,12 @@ from a deployment job. Do not run destructive schema changes automatically
 from the API. Take a PostgreSQL backup and a copy/snapshot of the storage
 volume before applying an organizational migration.
 
+Both `deploy/compose.yaml` and `docker-compose-coolify.yml` use the custom
+PostgreSQL image and run the idempotent `deploy/postgres/ensure.sql` through
+the database entrypoint. Rebuilding/recreating the database container applies
+new schema changes without removing the PostgreSQL volume. Do not use
+`docker compose down -v`, because it deletes the persisted database.
+
 The database and the storage volume must be backed up together. Restoring only
 one of them can leave diagram or attachment metadata without its object.
 

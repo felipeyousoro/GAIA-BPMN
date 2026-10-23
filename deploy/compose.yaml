@@ -24,7 +24,9 @@ services:
         condition: service_healthy
 
   postgres:
-    image: postgres:16-alpine
+    build:
+      context: ./postgres
+      dockerfile: Dockerfile
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-bpmn_properties}
       POSTGRES_USER: ${POSTGRES_USER:-bpmn_properties}
@@ -33,9 +35,6 @@ services:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ../backend/src/BpmnProperties.Infrastructure/Migrations/0001_initial.sql:/docker-entrypoint-initdb.d/001_initial.sql:ro
-      - ../backend/src/BpmnProperties.Infrastructure/Migrations/0002_diagrams_io_attachments.sql:/docker-entrypoint-initdb.d/002_diagrams_io_attachments.sql:ro
-      - ../backend/src/BpmnProperties.Infrastructure/Migrations/0003_users_auth.sql:/docker-entrypoint-initdb.d/003_users_auth.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
