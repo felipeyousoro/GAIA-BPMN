@@ -44,9 +44,15 @@ CREATE TABLE IF NOT EXISTS bpmn_elements (
     "ProcessId" uuid NOT NULL REFERENCES processes ("Id") ON DELETE CASCADE,
     "ExternalElementId" varchar(200) NOT NULL,
     "ElementType" varchar(200),
-    "Name" varchar(300)
+    "Name" varchar(300),
+    "Description" varchar(5000),
+    "Resources" varchar(5000),
+    "Instructions" varchar(5000)
 );
 CREATE UNIQUE INDEX IF NOT EXISTS "IX_bpmn_elements_ProcessId_ExternalElementId" ON bpmn_elements ("ProcessId", "ExternalElementId");
+ALTER TABLE bpmn_elements ADD COLUMN IF NOT EXISTS "Description" varchar(5000);
+ALTER TABLE bpmn_elements ADD COLUMN IF NOT EXISTS "Resources" varchar(5000);
+ALTER TABLE bpmn_elements ADD COLUMN IF NOT EXISTS "Instructions" varchar(5000);
 
 CREATE TABLE IF NOT EXISTS property_definitions (
     "Id" uuid PRIMARY KEY,

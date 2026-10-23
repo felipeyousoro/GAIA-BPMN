@@ -7,13 +7,15 @@ export function TaskPanel({
   onChange,
   onUpload,
   onDownload,
+  onPrint,
   onDelete
 }: {
   task?: Task;
   readOnly?: boolean;
-  onChange: (field: "input" | "output", value: string) => void;
+  onChange: (field: "input" | "output" | "description" | "resources" | "instructions", value: string) => void;
   onUpload: (files: File[]) => void;
   onDownload: (attachment: Attachment) => void;
+  onPrint: (attachment: Attachment) => void;
   onDelete: (attachment: Attachment) => void;
 }) {
   const input = useRef<HTMLInputElement>(null);
@@ -40,6 +42,19 @@ export function TaskPanel({
       </div>
 
       <label className="form-label">
+        Descrição
+        <textarea
+          readOnly={readOnly}
+          className={readOnly ? "textarea-readonly" : ""}
+          placeholder={readOnly ? "Sem descrição." : "Descreva este elemento BPMN..."}
+          value={task.description ?? ""}
+          onChange={event => {
+            if (!readOnly) onChange("description", event.target.value);
+          }}
+        />
+      </label>
+
+      <label className="form-label">
         Input
         <textarea
           readOnly={readOnly}
@@ -48,6 +63,32 @@ export function TaskPanel({
           value={task.input ?? ""}
           onChange={event => {
             if (!readOnly) onChange("input", event.target.value);
+          }}
+        />
+      </label>
+
+      <label className="form-label">
+        Recursos necessários
+        <textarea
+          readOnly={readOnly}
+          className={readOnly ? "textarea-readonly" : ""}
+          placeholder={readOnly ? "Sem recursos informados." : "Liste os recursos necessários..."}
+          value={task.resources ?? ""}
+          onChange={event => {
+            if (!readOnly) onChange("resources", event.target.value);
+          }}
+        />
+      </label>
+
+      <label className="form-label">
+        Instruções
+        <textarea
+          readOnly={readOnly}
+          className={readOnly ? "textarea-readonly" : ""}
+          placeholder={readOnly ? "Sem instruções." : "Descreva como executar esta task..."}
+          value={task.instructions ?? ""}
+          onChange={event => {
+            if (!readOnly) onChange("instructions", event.target.value);
           }}
         />
       </label>
@@ -95,6 +136,11 @@ export function TaskPanel({
               <li key={attachment.id} className="attachment-item">
                 <span title={attachment.fileName}>{attachment.fileName}</span>
                 <div className="attachment-actions">
+                  {attachment.contentType.toLowerCase() === "application/pdf" && (
+                    <button type="button" className="btn-secondary btn-xs" onClick={() => onPrint(attachment)}>
+                      Imprimir
+                    </button>
+                  )}
                   <button type="button" className="btn-secondary btn-xs" onClick={() => onDownload(attachment)}>
                     Baixar
                   </button>

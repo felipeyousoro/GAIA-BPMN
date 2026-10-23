@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   deleteAttachment,
   downloadAttachment,
+  printAttachment,
   downloadDiagram,
   getDiagram,
   getTasks,
@@ -153,6 +154,7 @@ export function ProcessView({
             if (!isReadOnly) upload.mutate(files);
           }}
           onDownload={attachment => void download(downloadAttachment(attachment.id), attachment.fileName)}
+          onPrint={attachment => void printAttachment(attachment.id)}
           onDelete={attachment => {
             if (!isReadOnly) remove.mutate(attachment.id);
           }}

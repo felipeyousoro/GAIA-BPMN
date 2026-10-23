@@ -29,8 +29,12 @@ const taskSchema = z.object({
   elementId: z.string().uuid(),
   externalElementId: z.string(),
   name: z.string().nullable(),
+  elementType: z.string().nullable(),
+  description: z.string().nullable(),
   input: z.string().nullable(),
   output: z.string().nullable(),
+  resources: z.string().nullable(),
+  instructions: z.string().nullable(),
   attachments: z.array(attachmentSchema)
 });
 
@@ -233,7 +237,7 @@ export async function getTasks(id: string): Promise<Task[]> {
   return taskSchema.array().parse(await (await request(`/api/v1/processes/${id}/tasks`)).json());
 }
 
-export async function saveTasks(id: string, tasks: Array<Pick<Task, "externalElementId" | "input" | "output">>): Promise<void> {
+export async function saveTasks(id: string, tasks: Array<Pick<Task, "externalElementId" | "input" | "output" | "description" | "resources" | "instructions">>): Promise<void> {
   await request(`/api/v1/processes/${id}/tasks`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
@@ -262,9 +266,21 @@ export async function downloadDiagram(id: string): Promise<{ blob: Blob; fileNam
 }
 
 export async function downloadAttachment(id: string): Promise<{ blob: Blob; fileName?: string }> {
-  const response = await request(`/api/v1/attachments/${id}/content`);
+  const response = await request(`/api/v1/attachments/${id}/content?download=true`);
   return {
     blob: await response.blob(),
     fileName: response.headers.get("Content-Disposition")?.match(/filename="?([^"]+)"?/)?.[1]
   };
+}
+
+export async function printAttachment(id: string): Promise<void> {
+  const response = await request(`/api/v1/attachments/${id}/content`);
+  const url = URL.createObjectURL(await response.blob());
+  const printWindow = window.open(url, "_blank", "noopener,noreferrer");
+  if (!printWindow) {
+    URL.revokeObjectURL(url);
+    throw new Error("Não foi possível abrir a visualização para impressão.");
+  }
+  printWindow.addEventListener("load", () => printWindow.print(), { once: true });
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }

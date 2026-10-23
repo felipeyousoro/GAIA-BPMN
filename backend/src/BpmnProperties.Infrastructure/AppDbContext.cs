@@ -62,6 +62,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(x => x.ExternalElementId).HasMaxLength(200).IsRequired();
             entity.Property(x => x.ElementType).HasMaxLength(200);
             entity.Property(x => x.Name).HasMaxLength(300);
+            entity.Property(x => x.Description).HasMaxLength(5000);
+            entity.Property(x => x.Resources).HasMaxLength(5000);
+            entity.Property(x => x.Instructions).HasMaxLength(5000);
             entity.HasIndex(x => new { x.ProcessId, x.ExternalElementId }).IsUnique();
             entity.HasOne<Process>().WithMany(x => x.Elements).HasForeignKey(x => x.ProcessId).OnDelete(DeleteBehavior.Cascade);
             entity.HasMany(x => x.Attachments).WithOne().HasForeignKey(x => x.ElementId).OnDelete(DeleteBehavior.Cascade);

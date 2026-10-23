@@ -386,7 +386,9 @@ processes.MapGet("/{processId:guid}/elements", async (Guid processId, AppDbConte
 {
     if (!await db.Processes.AnyAsync(x => x.Id == processId, cancellationToken)) return Results.NotFound();
     return Results.Ok(await db.Elements.AsNoTracking().Where(x => x.ProcessId == processId).OrderBy(x => x.ExternalElementId)
-        .Select(x => new ElementResponse(x.Id, x.ProcessId, x.ExternalElementId, x.ElementType, x.Name)).ToListAsync(cancellationToken));
+        .Select(x => new ElementResponse(
+            x.Id, x.ProcessId, x.ExternalElementId, x.ElementType, x.Name,
+            x.Description, x.Resources, x.Instructions)).ToListAsync(cancellationToken));
 });
 processes.MapPost("/{processId:guid}/elements", async (Guid processId, CreateElementRequest request, AppDbContext db, CancellationToken cancellationToken) =>
 {
@@ -394,7 +396,9 @@ processes.MapPost("/{processId:guid}/elements", async (Guid processId, CreateEle
     var element = new BpmnElement(processId, request.ExternalElementId, request.ElementType, request.Name);
     db.Elements.Add(element);
     await db.SaveChangesAsync(cancellationToken);
-    return Results.Created($"/api/v1/elements/{element.Id}", new ElementResponse(element.Id, element.ProcessId, element.ExternalElementId, element.ElementType, element.Name));
+    return Results.Created($"/api/v1/elements/{element.Id}", new ElementResponse(
+        element.Id, element.ProcessId, element.ExternalElementId, element.ElementType, element.Name,
+        element.Description, element.Resources, element.Instructions));
 }).RequireAuthorization("AdminOnly");
 processes.MapGet("/{processId:guid}/diagram", async (Guid processId, bool? download, AppDbContext db, IObjectStorage storage, CancellationToken cancellationToken) =>
 {
@@ -417,8 +421,10 @@ processes.MapGet("/{processId:guid}/tasks", async (Guid processId, AppDbContext 
     var outputId = await db.PropertyDefinitions.Where(x => x.ProcessId == null && x.Key == "output").Select(x => (Guid?)x.Id).SingleOrDefaultAsync(cancellationToken);
     var elements = await db.Elements.AsNoTracking().Include(x => x.Attachments).Include(x => x.PropertyValues)
         .Where(x => x.ProcessId == processId).OrderBy(x => x.ExternalElementId).ToListAsync(cancellationToken);
-    return Results.Ok(elements.Select(x => new TaskResponse(x.Id, x.ExternalElementId, x.Name,
+    return Results.Ok(elements.Select(x => new TaskResponse(x.Id, x.ExternalElementId, x.Name, x.ElementType,
+        x.Description,
         ReadValue(x, inputId), ReadValue(x, outputId),
+        x.Resources, x.Instructions,
         x.Attachments.OrderBy(a => a.CreatedAt).Select(a => new AttachmentResponse(a.Id, a.FileName, a.ContentType, a.Size, a.CreatedAt)).ToList())));
 });
 processes.MapPut("/{processId:guid}/tasks", async (Guid processId, SaveTasksRequest request, AppDbContext db, IObjectStorage storage, CancellationToken cancellationToken) =>
@@ -434,6 +440,7 @@ processes.MapPut("/{processId:guid}/tasks", async (Guid processId, SaveTasksRequ
         if (element is null) continue;
         UpsertValue(db, element, definitions.GetValueOrDefault("input"), item.Input);
         UpsertValue(db, element, definitions.GetValueOrDefault("output"), item.Output);
+        element.UpdateMetadata(item.Description, item.Resources, item.Instructions);
         values[item.ExternalElementId] = (item.Input, item.Output);
     }
     await using var source = await storage.GetAsync(process.DiagramObjectKey, cancellationToken);
@@ -458,14 +465,37 @@ elements.MapPost("/{elementId:guid}/attachments", async (Guid elementId, HttpReq
     foreach (var file in form.Files)
     {
         if (file.Length <= 0 || file.Length > 26_214_400) return Results.BadRequest("Each file must be between 1 byte and 25 MB.");
+        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        var allowedTypes = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+        {
+            [".pdf"] = ["application/pdf"],
+            [".png"] = ["image/png"],
+            [".jpg"] = ["image/jpeg"],
+            [".jpeg"] = ["image/jpeg"],
+            [".svg"] = ["image/svg+xml"],
+            [".docx"] = ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+            [".xlsx"] = ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
+            [".bpmn"] = ["application/xml", "text/xml"]
+        };
+        if (!allowedTypes.TryGetValue(extension, out var acceptedTypes) ||
+            !acceptedTypes.Contains(file.ContentType ?? string.Empty, StringComparer.OrdinalIgnoreCase))
+            return Results.BadRequest("File extension and MIME type are not allowed.");
         var key = $"elements/{elementId}/{Guid.NewGuid():N}";
-        await using var stream = file.OpenReadStream();
-        await storage.PutAsync(key, stream, file.ContentType ?? "application/octet-stream", cancellationToken);
-        var attachment = new ElementAttachment(elementId, key, Path.GetFileName(file.FileName), file.ContentType ?? "application/octet-stream", file.Length);
-        db.ElementAttachments.Add(attachment);
-        result.Add(new AttachmentResponse(attachment.Id, attachment.FileName, attachment.ContentType, attachment.Size, attachment.CreatedAt));
+        try
+        {
+            await using var stream = file.OpenReadStream();
+            await storage.PutAsync(key, stream, file.ContentType!, cancellationToken);
+            var attachment = new ElementAttachment(elementId, key, Path.GetFileName(file.FileName), file.ContentType!, file.Length);
+            db.ElementAttachments.Add(attachment);
+            await db.SaveChangesAsync(cancellationToken);
+            result.Add(new AttachmentResponse(attachment.Id, attachment.FileName, attachment.ContentType, attachment.Size, attachment.CreatedAt));
+        }
+        catch
+        {
+            await storage.DeleteAsync(key, cancellationToken);
+            throw;
+        }
     }
-    await db.SaveChangesAsync(cancellationToken);
     return Results.Ok(result);
 }).DisableAntiforgery().RequireAuthorization("AdminOnly");
 elements.MapGet("/{elementId:guid}/attachments", async (Guid elementId, AppDbContext db, CancellationToken cancellationToken) =>
@@ -474,13 +504,19 @@ elements.MapGet("/{elementId:guid}/attachments", async (Guid elementId, AppDbCon
     return Results.Ok(await db.ElementAttachments.AsNoTracking().Where(x => x.ElementId == elementId).OrderBy(x => x.CreatedAt)
         .Select(x => new AttachmentResponse(x.Id, x.FileName, x.ContentType, x.Size, x.CreatedAt)).ToListAsync(cancellationToken));
 });
-app.MapGet("/api/v1/attachments/{attachmentId:guid}/content", async (Guid attachmentId, AppDbContext db, IObjectStorage storage, CancellationToken cancellationToken) =>
+app.MapGet("/api/v1/attachments/{attachmentId:guid}/content", async (Guid attachmentId, bool? download, AppDbContext db, IObjectStorage storage, CancellationToken cancellationToken) =>
 {
     var attachment = await db.ElementAttachments.AsNoTracking().SingleOrDefaultAsync(x => x.Id == attachmentId, cancellationToken);
     if (attachment is null) return Results.NotFound();
     try
     {
-        return Results.File(await storage.GetAsync(attachment.ObjectKey, cancellationToken), attachment.ContentType, attachment.FileName);
+        var content = await storage.GetAsync(attachment.ObjectKey, cancellationToken);
+        var isPdf = attachment.ContentType.Equals("application/pdf", StringComparison.OrdinalIgnoreCase)
+            && content.Length >= 5
+            && content[0] == 0x25 && content[1] == 0x50 && content[2] == 0x44 && content[3] == 0x46 && content[4] == 0x2D;
+        if (isPdf && download != true)
+            return Results.File(content, attachment.ContentType);
+        return Results.File(content, attachment.ContentType, attachment.FileName);
     }
     catch (FileNotFoundException)
     {

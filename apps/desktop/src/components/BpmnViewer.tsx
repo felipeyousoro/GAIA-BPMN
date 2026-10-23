@@ -36,7 +36,9 @@ export function BpmnViewer({ xml, tasks, selectedId, onSelect }: { xml: string; 
     const appliedIds = new Set<string>();
     tasks.forEach(task => {
       if (!elementRegistry.get(task.externalElementId)) return;
-      const marker = task.input || task.output ? "has-values" : "no-values";
+      const marker = task.input || task.output || task.description || task.resources || task.instructions
+        ? "has-values"
+        : "no-values";
       canvas.addMarker(task.externalElementId, marker);
       if (selectedId === task.externalElementId) canvas.addMarker(task.externalElementId, "selected");
       appliedIds.add(task.externalElementId);

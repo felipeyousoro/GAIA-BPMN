@@ -132,6 +132,9 @@ public sealed class BpmnElement
     public string ExternalElementId { get; private set; } = string.Empty;
     public string? ElementType { get; private set; }
     public string? Name { get; private set; }
+    public string? Description { get; private set; }
+    public string? Resources { get; private set; }
+    public string? Instructions { get; private set; }
     public List<PropertyValue> PropertyValues { get; private set; } = [];
     public List<ElementAttachment> Attachments { get; private set; } = [];
 
@@ -140,6 +143,15 @@ public sealed class BpmnElement
         Name = name?.Trim();
         ElementType = elementType?.Trim();
     }
+
+    public void UpdateMetadata(string? description, string? resources, string? instructions)
+    {
+        Description = Normalize(description);
+        Resources = Normalize(resources);
+        Instructions = Normalize(instructions);
+    }
+
+    private static string? Normalize(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }
 
 public sealed class ElementAttachment

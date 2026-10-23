@@ -28,10 +28,34 @@ public sealed record ProcessResponse(
     string SuborganizationName);
 public sealed record OrganizationResponse(Guid Id, string Name, string? Code, bool IsActive);
 public sealed record SuborganizationResponse(Guid Id, Guid OrganizationId, string Name, string? Code, bool IsActive);
-public sealed record ElementResponse(Guid Id, Guid ProcessId, string ExternalElementId, string? ElementType, string? Name);
+public sealed record ElementResponse(
+    Guid Id,
+    Guid ProcessId,
+    string ExternalElementId,
+    string? ElementType,
+    string? Name,
+    string? Description,
+    string? Resources,
+    string? Instructions);
 public sealed record AttachmentResponse(Guid Id, string FileName, string ContentType, long Size, DateTimeOffset CreatedAt);
-public sealed record TaskResponse(Guid ElementId, string ExternalElementId, string? Name, string? Input, string? Output, IReadOnlyList<AttachmentResponse> Attachments);
-public sealed record SaveTaskValue(string ExternalElementId, string? Input, string? Output);
+public sealed record TaskResponse(
+    Guid ElementId,
+    string ExternalElementId,
+    string? Name,
+    string? ElementType,
+    string? Description,
+    string? Input,
+    string? Output,
+    string? Resources,
+    string? Instructions,
+    IReadOnlyList<AttachmentResponse> Attachments);
+public sealed record SaveTaskValue(
+    string ExternalElementId,
+    string? Input,
+    string? Output,
+    string? Description,
+    string? Resources,
+    string? Instructions);
 public sealed record SaveTasksRequest(IReadOnlyList<SaveTaskValue> Tasks);
 public sealed record PropertyDefinitionResponse(Guid Id, Guid? ProcessId, string Key, string DisplayName, string? Description, PropertyDataType DataType, bool IsRequired, bool IsActive, int DisplayOrder, JsonElement? DefaultValue);
 public sealed record PropertyValueResponse(Guid PropertyDefinitionId, JsonElement Value, DateTimeOffset UpdatedAt);
