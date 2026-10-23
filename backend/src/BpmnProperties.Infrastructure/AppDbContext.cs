@@ -6,6 +6,8 @@ namespace BpmnProperties.Infrastructure;
 public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
     public DbSet<Process> Processes => Set<Process>();
+    public DbSet<Organization> Organizations => Set<Organization>();
+    public DbSet<Suborganization> Suborganizations => Set<Suborganization>();
     public DbSet<BpmnElement> Elements => Set<BpmnElement>();
     public DbSet<PropertyDefinition> PropertyDefinitions => Set<PropertyDefinition>();
     public DbSet<PropertyOption> PropertyOptions => Set<PropertyOption>();
@@ -21,7 +23,36 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.HasKey(x => x.Id);
             entity.Property(x => x.ExternalKey).HasMaxLength(200).IsRequired();
             entity.Property(x => x.Name).HasMaxLength(300).IsRequired();
+            entity.HasOne(x => x.Suborganization).WithMany(x => x.Processes).HasForeignKey(x => x.SuborganizationId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(x => x.SuborganizationId);
             entity.HasIndex(x => x.ExternalKey).IsUnique();
+        });
+
+        modelBuilder.Entity<Organization>(entity =>
+        {
+            entity.ToTable("organizations");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Name).HasMaxLength(200).IsRequired();
+            entity.Property(x => x.Code).HasMaxLength(100);
+            entity.Property(x => x.IsActive).IsRequired();
+            entity.Property(x => x.CreatedAt).IsRequired();
+            entity.Property(x => x.UpdatedAt).IsRequired();
+            entity.HasIndex(x => x.Name).IsUnique();
+            entity.HasIndex(x => x.Code).IsUnique().HasFilter("\"Code\" IS NOT NULL");
+            entity.HasMany(x => x.Suborganizations).WithOne(x => x.Organization).HasForeignKey(x => x.OrganizationId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Suborganization>(entity =>
+        {
+            entity.ToTable("suborganizations");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Name).HasMaxLength(200).IsRequired();
+            entity.Property(x => x.Code).HasMaxLength(100);
+            entity.Property(x => x.IsActive).IsRequired();
+            entity.Property(x => x.CreatedAt).IsRequired();
+            entity.Property(x => x.UpdatedAt).IsRequired();
+            entity.HasIndex(x => new { x.OrganizationId, x.Name }).IsUnique();
+            entity.HasIndex(x => new { x.OrganizationId, x.Code }).IsUnique().HasFilter("\"Code\" IS NOT NULL");
         });
 
         modelBuilder.Entity<BpmnElement>(entity =>

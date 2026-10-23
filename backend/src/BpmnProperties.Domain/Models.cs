@@ -27,6 +27,8 @@ public sealed class Process
     }
 
     public Guid Id { get; private set; } = Guid.NewGuid();
+    public Guid SuborganizationId { get; private set; }
+    public Suborganization Suborganization { get; private set; } = null!;
     public string ExternalKey { get; private set; } = string.Empty;
     public string Name { get; private set; } = string.Empty;
     public string? DiagramObjectKey { get; private set; }
@@ -51,6 +53,65 @@ public sealed class Process
         FileName = fileName.Trim();
         UpdatedAt = DateTimeOffset.UtcNow;
     }
+
+    public void AssignToSuborganization(Guid suborganizationId)
+    {
+        if (suborganizationId == Guid.Empty) throw new ArgumentException("Suborganization is required.", nameof(suborganizationId));
+        SuborganizationId = suborganizationId;
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+}
+
+public sealed class Organization
+{
+    private Organization() { }
+
+    public Organization(string name, string? code = null)
+    {
+        if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("Organization name is required.", nameof(name));
+        Id = Guid.NewGuid();
+        Name = name.Trim();
+        Code = string.IsNullOrWhiteSpace(code) ? null : code.Trim();
+        IsActive = true;
+        CreatedAt = DateTimeOffset.UtcNow;
+        UpdatedAt = CreatedAt;
+    }
+
+    public Guid Id { get; private set; }
+    public string Name { get; private set; } = string.Empty;
+    public string? Code { get; private set; }
+    public bool IsActive { get; private set; }
+    public DateTimeOffset CreatedAt { get; private set; }
+    public DateTimeOffset UpdatedAt { get; private set; }
+    public List<Suborganization> Suborganizations { get; private set; } = [];
+}
+
+public sealed class Suborganization
+{
+    private Suborganization() { }
+
+    public Suborganization(Guid organizationId, string name, string? code = null)
+    {
+        if (organizationId == Guid.Empty) throw new ArgumentException("Organization is required.", nameof(organizationId));
+        if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("Suborganization name is required.", nameof(name));
+        Id = Guid.NewGuid();
+        OrganizationId = organizationId;
+        Name = name.Trim();
+        Code = string.IsNullOrWhiteSpace(code) ? null : code.Trim();
+        IsActive = true;
+        CreatedAt = DateTimeOffset.UtcNow;
+        UpdatedAt = CreatedAt;
+    }
+
+    public Guid Id { get; private set; }
+    public Guid OrganizationId { get; private set; }
+    public Organization Organization { get; private set; } = null!;
+    public string Name { get; private set; } = string.Empty;
+    public string? Code { get; private set; }
+    public bool IsActive { get; private set; }
+    public DateTimeOffset CreatedAt { get; private set; }
+    public DateTimeOffset UpdatedAt { get; private set; }
+    public List<Process> Processes { get; private set; } = [];
 }
 
 public sealed class BpmnElement

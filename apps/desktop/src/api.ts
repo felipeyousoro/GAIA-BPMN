@@ -10,7 +10,11 @@ const processSchema = z.object({
   name: z.string(),
   fileName: z.string().nullable(),
   updatedAt: z.string(),
-  taskCount: z.number()
+  taskCount: z.number(),
+  suborganizationId: z.string().uuid(),
+  organizationId: z.string().uuid(),
+  organizationName: z.string(),
+  suborganizationName: z.string()
 });
 
 const attachmentSchema = z.object({

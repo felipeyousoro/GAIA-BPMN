@@ -3,7 +3,7 @@ using BpmnProperties.Domain;
 
 namespace BpmnProperties.Application;
 
-public sealed record CreateProcessRequest(string ExternalKey, string Name);
+public sealed record CreateProcessRequest(string ExternalKey, string Name, Guid? SuborganizationId = null);
 public sealed record CreateElementRequest(string ExternalElementId, string? ElementType, string? Name);
 public sealed record CreatePropertyDefinitionRequest(
     Guid? ProcessId,
@@ -15,7 +15,19 @@ public sealed record CreatePropertyDefinitionRequest(
     int DisplayOrder,
     JsonElement? DefaultValue);
 public sealed record SetPropertyValueRequest(JsonElement Value);
-public sealed record ProcessResponse(Guid Id, string ExternalKey, string Name, string? FileName, DateTimeOffset UpdatedAt, int TaskCount);
+public sealed record ProcessResponse(
+    Guid Id,
+    string ExternalKey,
+    string Name,
+    string? FileName,
+    DateTimeOffset UpdatedAt,
+    int TaskCount,
+    Guid SuborganizationId,
+    Guid OrganizationId,
+    string OrganizationName,
+    string SuborganizationName);
+public sealed record OrganizationResponse(Guid Id, string Name, string? Code, bool IsActive);
+public sealed record SuborganizationResponse(Guid Id, Guid OrganizationId, string Name, string? Code, bool IsActive);
 public sealed record ElementResponse(Guid Id, Guid ProcessId, string ExternalElementId, string? ElementType, string? Name);
 public sealed record AttachmentResponse(Guid Id, string FileName, string ContentType, long Size, DateTimeOffset CreatedAt);
 public sealed record TaskResponse(Guid ElementId, string ExternalElementId, string? Name, string? Input, string? Output, IReadOnlyList<AttachmentResponse> Attachments);
@@ -31,4 +43,3 @@ public sealed record UpdateProfileRequest(string DisplayName);
 public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 public sealed record CreateUserRequest(string Username, string DisplayName, string Password, string Role);
 public sealed record ResetPasswordRequest(string NewPassword);
-

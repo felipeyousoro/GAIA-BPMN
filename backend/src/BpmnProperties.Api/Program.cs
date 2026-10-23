@@ -277,10 +277,26 @@ users.MapDelete("/{userId:guid}", async (Guid userId, ClaimsPrincipal principal,
 });
 
 var processes = app.MapGroup("/api/v1/processes").RequireAuthorization();
+var organizations = app.MapGroup("/api/v1/organizations").RequireAuthorization();
+organizations.MapGet("/", async (AppDbContext db, CancellationToken cancellationToken) =>
+    Results.Ok(await db.Organizations.AsNoTracking().OrderBy(x => x.Name)
+        .Select(x => new OrganizationResponse(x.Id, x.Name, x.Code, x.IsActive))
+        .ToListAsync(cancellationToken)));
+organizations.MapGet("/{organizationId:guid}/suborganizations", async (Guid organizationId, AppDbContext db, CancellationToken cancellationToken) =>
+{
+    if (!await db.Organizations.AnyAsync(x => x.Id == organizationId, cancellationToken)) return Results.NotFound();
+    return Results.Ok(await db.Suborganizations.AsNoTracking()
+        .Where(x => x.OrganizationId == organizationId).OrderBy(x => x.Name)
+        .Select(x => new SuborganizationResponse(x.Id, x.OrganizationId, x.Name, x.Code, x.IsActive))
+        .ToListAsync(cancellationToken));
+});
 processes.MapGet("/", async (AppDbContext db, CancellationToken cancellationToken) =>
 {
     var result = await db.Processes.AsNoTracking().OrderByDescending(x => x.UpdatedAt)
-        .Select(x => new ProcessResponse(x.Id, x.ExternalKey, x.Name, x.FileName, x.UpdatedAt, x.Elements.Count)).ToListAsync(cancellationToken);
+        .Select(x => new ProcessResponse(
+            x.Id, x.ExternalKey, x.Name, x.FileName, x.UpdatedAt, x.Elements.Count,
+            x.SuborganizationId, x.Suborganization.OrganizationId, x.Suborganization.Organization.Name, x.Suborganization.Name))
+        .ToListAsync(cancellationToken);
     return Results.Ok(result);
 });
 processes.MapPost("/import", async (HttpRequest request, AppDbContext db, IObjectStorage storage, CancellationToken cancellationToken) =>
@@ -289,6 +305,20 @@ processes.MapPost("/import", async (HttpRequest request, AppDbContext db, IObjec
     var file = form.Files.SingleOrDefault();
     if (file is null || file.Length <= 0 || file.Length > BpmnXml.MaxBytes || !file.FileName.EndsWith(".bpmn", StringComparison.OrdinalIgnoreCase))
         return Results.BadRequest("Exactly one non-empty .bpmn file up to 10 MB is required.");
+    Guid? requestedSuborganizationId = null;
+    if (form.TryGetValue("suborganizationId", out var suborganizationValue) &&
+        !string.IsNullOrWhiteSpace(suborganizationValue))
+    {
+        if (!Guid.TryParse(suborganizationValue, out var parsedSuborganizationId))
+            return Results.BadRequest("suborganizationId must be a valid UUID.");
+        requestedSuborganizationId = parsedSuborganizationId;
+    }
+    var suborganization = requestedSuborganizationId is null
+        ? await db.Suborganizations.Include(x => x.Organization).OrderBy(x => x.Id).FirstOrDefaultAsync(cancellationToken)
+        : await db.Suborganizations.Include(x => x.Organization)
+            .SingleOrDefaultAsync(x => x.Id == requestedSuborganizationId.Value, cancellationToken);
+    if (suborganization is null || !suborganization.IsActive || !suborganization.Organization.IsActive)
+        return Results.BadRequest("A valid active suborganization is required.");
     await using var uploaded = file.OpenReadStream();
     BpmnDocument parsed;
     try
@@ -306,9 +336,14 @@ processes.MapPost("/import", async (HttpRequest request, AppDbContext db, IObjec
     if (process is null)
     {
         process = new Process(parsed.ExternalKey, parsed.Name);
+        process.AssignToSuborganization(suborganization.Id);
         db.Processes.Add(process);
     }
-    else process.Rename(parsed.Name);
+    else
+    {
+        process.Rename(parsed.Name);
+        if (requestedSuborganizationId is not null) process.AssignToSuborganization(suborganization.Id);
+    }
     var key = $"processes/{process.Id}/diagram.bpmn";
     process.AttachDiagram(key, Path.GetFileName(file.FileName));
     var definitions = await db.PropertyDefinitions.Where(x => x.ProcessId == null && (x.Key == "input" || x.Key == "output")).ToDictionaryAsync(x => x.Key, cancellationToken);
@@ -327,14 +362,25 @@ processes.MapPost("/import", async (HttpRequest request, AppDbContext db, IObjec
     await db.SaveChangesAsync(cancellationToken);
     await using var xml = new MemoryStream(Encoding.UTF8.GetBytes(BpmnXml.Serialize(parsed.Xml)));
     await storage.PutAsync(key, xml, "application/xml", cancellationToken);
-    return Results.Ok(new ProcessResponse(process.Id, process.ExternalKey, process.Name, process.FileName, process.UpdatedAt, parsed.Tasks.Count));
+    return Results.Ok(new ProcessResponse(
+        process.Id, process.ExternalKey, process.Name, process.FileName, process.UpdatedAt, parsed.Tasks.Count,
+        process.SuborganizationId, suborganization.OrganizationId, suborganization.Organization.Name, suborganization.Name));
 }).DisableAntiforgery().RequireAuthorization("AdminOnly");
 processes.MapPost("/", async (CreateProcessRequest request, AppDbContext db, CancellationToken cancellationToken) =>
 {
+    var suborganization = request.SuborganizationId is null
+        ? await db.Suborganizations.Include(x => x.Organization).OrderBy(x => x.Id).FirstOrDefaultAsync(cancellationToken)
+        : await db.Suborganizations.Include(x => x.Organization)
+            .SingleOrDefaultAsync(x => x.Id == request.SuborganizationId.Value, cancellationToken);
+    if (suborganization is null || !suborganization.IsActive || !suborganization.Organization.IsActive)
+        return Results.BadRequest("A valid active suborganization is required.");
     var process = new Process(request.ExternalKey, request.Name);
+    process.AssignToSuborganization(suborganization.Id);
     db.Processes.Add(process);
     await db.SaveChangesAsync(cancellationToken);
-    return Results.Created($"/api/v1/processes/{process.Id}", new ProcessResponse(process.Id, process.ExternalKey, process.Name, process.FileName, process.UpdatedAt, 0));
+    return Results.Created($"/api/v1/processes/{process.Id}", new ProcessResponse(
+        process.Id, process.ExternalKey, process.Name, process.FileName, process.UpdatedAt, 0,
+        process.SuborganizationId, suborganization.OrganizationId, suborganization.Organization.Name, suborganization.Name));
 }).RequireAuthorization("AdminOnly");
 processes.MapGet("/{processId:guid}/elements", async (Guid processId, AppDbContext db, CancellationToken cancellationToken) =>
 {
