@@ -248,6 +248,50 @@ export async function listSuborganizations(organizationId: string): Promise<Subo
   );
 }
 
+export async function createOrganization(name: string, code?: string): Promise<Organization> {
+  return organizationSchema.parse(await (await request("/api/v1/organizations", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, code: code || null })
+  })).json());
+}
+
+export async function updateOrganization(id: string, name: string, isActive: boolean): Promise<Organization> {
+  return organizationSchema.parse(await (await request(`/api/v1/organizations/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, isActive })
+  })).json());
+}
+
+export async function createSuborganization(
+  organizationId: string,
+  name: string,
+  code?: string
+): Promise<Suborganization> {
+  return suborganizationSchema.parse(await (await request(`/api/v1/organizations/${organizationId}/suborganizations`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, code: code || null })
+  })).json());
+}
+
+export async function updateSuborganization(
+  organizationId: string,
+  suborganizationId: string,
+  name: string,
+  isActive: boolean
+): Promise<Suborganization> {
+  return suborganizationSchema.parse(await (await request(
+    `/api/v1/organizations/${organizationId}/suborganizations/${suborganizationId}`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, isActive })
+    }
+  )).json());
+}
+
 export async function importProcess(file: File, suborganizationId?: string): Promise<Process> {
   const form = new FormData();
   form.append("file", file);

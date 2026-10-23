@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import { fetchAvatarBlobUrl, User } from "../api";
 
-export type NavSection = "processes" | "settings";
+export type NavSection = "processes" | "organizations" | "settings";
 
 export function AppLayout({
   title,
@@ -57,6 +57,7 @@ export function AppLayout({
 
   const navItems: Array<{ id: NavSection; label: string }> = [
     { id: "processes", label: "Processos (Home)" },
+    ...(user.role === "Admin" ? [{ id: "organizations" as const, label: "Órgãos e Subórgãos" }] : []),
     { id: "settings", label: "Configurações (Settings)" }
   ];
 

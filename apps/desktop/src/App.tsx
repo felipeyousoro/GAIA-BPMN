@@ -6,6 +6,7 @@ import { Home } from "./pages/Home";
 import { Login } from "./pages/Login";
 import { ProcessView } from "./pages/ProcessView";
 import { Settings } from "./pages/Settings";
+import { Organizations } from "./pages/Organizations";
 
 const queryClient = new QueryClient();
 
@@ -71,6 +72,9 @@ function Shell() {
   }
 
   const pageTitle =
+    activeSection === "organizations"
+      ? "Órgãos e Subórgãos"
+      :
     activeSection === "settings"
       ? "Configurações do Sistema"
       : processId
@@ -89,7 +93,9 @@ function Shell() {
       }}
       onLogout={handleLogout}
     >
-      {activeSection === "settings" ? (
+      {activeSection === "organizations" ? (
+        <Organizations />
+      ) : activeSection === "settings" ? (
         <Settings
           user={user}
           avatarVersion={avatarVersion}

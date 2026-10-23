@@ -59,7 +59,7 @@ export function Home({
                 setSuborganizationId(undefined);
               }}
             >
-              <option value="">Órgão padrão</option>
+              <option value="">Selecione o órgão</option>
               {organizations.data?.filter(item => item.isActive).map(item => (
                 <option key={item.id} value={item.id}>{item.name}</option>
               ))}
@@ -70,7 +70,7 @@ export function Home({
               onChange={event => setSuborganizationId(event.target.value || undefined)}
               disabled={!organizationId}
             >
-              <option value="">Subórgão padrão</option>
+              <option value="">Selecione o subórgão</option>
               {suborganizations.data?.filter(item => item.isActive).map(item => (
                 <option key={item.id} value={item.id}>{item.name}</option>
               ))}
@@ -78,11 +78,12 @@ export function Home({
             <button
               type="button"
               className="btn-primary"
-              disabled={importer.isPending}
+              disabled={importer.isPending || !suborganizationId}
               onClick={() => input.current?.click()}
             >
               {importer.isPending ? "Importando..." : "+ Importar BPMN"}
             </button>
+            {!suborganizationId && <small className="muted-text">Selecione o órgão e o subórgão antes de importar.</small>}
             <input
               ref={input}
               hidden
@@ -126,6 +127,7 @@ export function Home({
               <span className="process-task-counter">{process.taskCount} task(s)</span>
             </div>
             <strong className="process-card-title">{process.name}</strong>
+            <span className="process-card-file">{process.organizationName} → {process.suborganizationName}</span>
             <span className="process-card-file">{process.fileName ?? "Sem arquivo"}</span>
             <small className="process-card-date">
               Atualizado em {new Date(process.updatedAt).toLocaleString()}
