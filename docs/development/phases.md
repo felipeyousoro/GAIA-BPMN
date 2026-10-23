@@ -19,7 +19,7 @@ The BPMN viewer is read-only for diagram editing. The API preserves the source X
 - [x] Phase 3: immediate attachment upload and lifecycle
 - [x] Phase 4: authenticated PDF printing
 - [ ] Phase 5: organizational API and catalog screens
-- [ ] Phase 6: element editing experience
+- [x] Phase 6: element editing experience
 - [ ] Phase 7: security, performance, and operations hardening
 - [ ] Phase 8: automated validation, assisted migration, and rollout
 
