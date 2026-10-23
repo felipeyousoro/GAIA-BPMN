@@ -1,8 +1,10 @@
 # Desktop element editing
 
 The visualizer keeps diagram XML read-only while the side panel edits
-application metadata. Task panels expose Input, Output, Recursos necessários,
-Instruções, Descrição, and attachments. A metadata save is separate from an
+application metadata. The panel opens for tasks, gateways, start/end events,
+and other supported BPMN business elements. Task panels expose Input, Output,
+Recursos necessários, Instruções, Descrição, and attachments; non-task
+elements expose Descrição and attachments. A metadata save is separate from an
 attachment upload: upload confirmation invalidates only the task query and
 does not mark text fields as dirty.
 

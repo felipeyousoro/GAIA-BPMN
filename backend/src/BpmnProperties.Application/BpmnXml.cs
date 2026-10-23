@@ -4,8 +4,14 @@ using System.Xml.Linq;
 namespace BpmnProperties.Application;
 
 public sealed record BpmnTask(string ExternalElementId, string? Name, string ElementType, string? Input, string? Output);
+public sealed record BpmnElementData(string ExternalElementId, string? Name, string ElementType, string? Input, string? Output);
 
-public sealed record BpmnDocument(string ExternalKey, string Name, XDocument Xml, IReadOnlyList<BpmnTask> Tasks);
+public sealed record BpmnDocument(
+    string ExternalKey,
+    string Name,
+    XDocument Xml,
+    IReadOnlyList<BpmnTask> Tasks,
+    IReadOnlyList<BpmnElementData> Elements);
 
 public static class BpmnXml
 {
@@ -31,12 +37,12 @@ public static class BpmnXml
         {
             externalKey = Path.GetFileNameWithoutExtension(fileName) ?? "process";
         }
-        var tasks = process.Descendants()
-            .Where(IsTask)
+        var elements = process.Descendants()
+            .Where(IsBusinessElement)
             .Select(element =>
             {
                 var io = element.Descendants(XName.Get("io", GaiaNamespace)).FirstOrDefault();
-                return new BpmnTask(
+                return new BpmnElementData(
                     (string?)element.Attribute("id") ?? throw new InvalidDataException("BPMN task is missing an id."),
                     (string?)element.Attribute("name"),
                     element.Name.LocalName,
@@ -44,7 +50,17 @@ public static class BpmnXml
                     io?.Element(XName.Get("output", GaiaNamespace))?.Value);
             })
             .ToList();
-        return new BpmnDocument(externalKey, (string?)process.Attribute("name") ?? externalKey, document, tasks);
+        var tasks = elements
+            .Where(element => IsTaskType(element.ElementType))
+            .Select(element => new BpmnTask(
+                element.ExternalElementId, element.Name, element.ElementType, element.Input, element.Output))
+            .ToList();
+        return new BpmnDocument(
+            externalKey,
+            (string?)process.Attribute("name") ?? externalKey,
+            document,
+            tasks,
+            elements);
     }
 
     public static void ApplyTaskValues(XDocument document, IDictionary<string, (string? Input, string? Output)> values)
@@ -86,6 +102,21 @@ public static class BpmnXml
         element.Name.NamespaceName == BpmnNamespace
         && (element.Name.LocalName.EndsWith("Task", StringComparison.Ordinal)
             || element.Name.LocalName is "task" or "subProcess" or "callActivity");
+
+    private static bool IsBusinessElement(XElement element) =>
+        element.Name.NamespaceName == BpmnNamespace
+        && element.Attribute("id") is not null
+        && !element.Name.LocalName.EndsWith("Flow", StringComparison.Ordinal)
+        && element.Name.LocalName is not "process"
+            and not "lane"
+            and not "laneSet"
+            and not "association"
+            and not "textAnnotation"
+            and not "group";
+
+    private static bool IsTaskType(string elementType) =>
+        elementType.EndsWith("Task", StringComparison.Ordinal)
+        || elementType is "task" or "subProcess" or "callActivity";
 
     private static void SetElement(XElement parent, XName name, string? value)
     {

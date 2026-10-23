@@ -387,17 +387,24 @@ processes.MapPost("/import", async (HttpRequest request, AppDbContext db, IObjec
     var key = $"processes/{process.Id}/diagram.bpmn";
     process.AttachDiagram(key, Path.GetFileName(file.FileName));
     var definitions = await db.PropertyDefinitions.Where(x => x.ProcessId == null && (x.Key == "input" || x.Key == "output")).ToDictionaryAsync(x => x.Key, cancellationToken);
-    foreach (var task in parsed.Tasks)
+    foreach (var parsedElement in parsed.Elements)
     {
-        var element = process.Elements.SingleOrDefault(x => x.ExternalElementId == task.ExternalElementId);
+        var element = process.Elements.SingleOrDefault(x => x.ExternalElementId == parsedElement.ExternalElementId);
         if (element is null)
         {
-            element = new BpmnElement(process.Id, task.ExternalElementId, task.ElementType, task.Name);
+            element = new BpmnElement(
+                process.Id,
+                parsedElement.ExternalElementId,
+                parsedElement.ElementType,
+                parsedElement.Name);
             process.Elements.Add(element);
         }
-        else element.Rename(task.Name, task.ElementType);
-        UpsertValue(db, element, definitions.GetValueOrDefault("input"), task.Input);
-        UpsertValue(db, element, definitions.GetValueOrDefault("output"), task.Output);
+        else element.Rename(parsedElement.Name, parsedElement.ElementType);
+        if (IsTaskElement(parsedElement.ElementType))
+        {
+            UpsertValue(db, element, definitions.GetValueOrDefault("input"), parsedElement.Input);
+            UpsertValue(db, element, definitions.GetValueOrDefault("output"), parsedElement.Output);
+        }
     }
     await db.SaveChangesAsync(cancellationToken);
     await using var xml = new MemoryStream(Encoding.UTF8.GetBytes(BpmnXml.Serialize(parsed.Xml)));
@@ -652,6 +659,10 @@ static void UpsertValue(AppDbContext db, BpmnElement element, PropertyDefinition
     if (current is null) db.PropertyValues.Add(new PropertyValue(element.Id, definition.Id, json));
     else current.Update(json);
 }
+
+static bool IsTaskElement(string elementType) =>
+    elementType.EndsWith("Task", StringComparison.Ordinal)
+    || elementType is "task" or "subProcess" or "callActivity";
 
 app.Run();
 public partial class Program { }

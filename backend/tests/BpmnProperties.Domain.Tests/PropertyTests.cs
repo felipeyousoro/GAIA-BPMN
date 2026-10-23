@@ -35,6 +35,28 @@ public sealed class PropertyTests
     }
 
     [Fact]
+    public void BpmnXmlParsesGatewaysAndEventsAsEditableElements()
+    {
+        using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes("""
+            <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL">
+              <process id="Process_1" name="Order">
+                <startEvent id="Start_1" name="Start" />
+                <exclusiveGateway id="Gateway_1" name="Decision" />
+                <endEvent id="End_1" name="End" />
+              </process>
+            </definitions>
+            """));
+
+        var parsed = BpmnXml.Parse(stream, "order.bpmn");
+
+        Assert.Empty(parsed.Tasks);
+        Assert.Equal(3, parsed.Elements.Count);
+        Assert.Contains(parsed.Elements, element => element.ElementType == "startEvent");
+        Assert.Contains(parsed.Elements, element => element.ElementType == "exclusiveGateway");
+        Assert.Contains(parsed.Elements, element => element.ElementType == "endEvent");
+    }
+
+    [Fact]
     public void BpmnXmlRejectsDtd()
     {
         using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes("""

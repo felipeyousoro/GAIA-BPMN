@@ -24,12 +24,15 @@ export function TaskPanel({
     return (
       <aside className="task-panel empty-task-panel">
         <div className="task-panel-header">
-          <h2>Detalhes da Task</h2>
+          <h2>Detalhes do elemento</h2>
         </div>
-        <p className="muted-text">Selecione uma task no diagrama para visualizar suas propriedades e anexos.</p>
+        <p className="muted-text">Selecione um elemento no diagrama para visualizar suas propriedades e anexos.</p>
       </aside>
     );
   }
+
+  const isTask = task.elementType?.endsWith("Task")
+    || ["task", "subProcess", "callActivity"].includes(task.elementType ?? "");
 
   return (
     <aside className="task-panel">
@@ -54,7 +57,7 @@ export function TaskPanel({
         />
       </label>
 
-      <label className="form-label">
+      {isTask && <label className="form-label">
         Input
         <textarea
           readOnly={readOnly}
@@ -65,9 +68,9 @@ export function TaskPanel({
             if (!readOnly) onChange("input", event.target.value);
           }}
         />
-      </label>
+      </label>}
 
-      <label className="form-label">
+      {isTask && <label className="form-label">
         Recursos necessários
         <textarea
           readOnly={readOnly}
@@ -78,9 +81,9 @@ export function TaskPanel({
             if (!readOnly) onChange("resources", event.target.value);
           }}
         />
-      </label>
+      </label>}
 
-      <label className="form-label">
+      {isTask && <label className="form-label">
         Instruções
         <textarea
           readOnly={readOnly}
@@ -91,9 +94,9 @@ export function TaskPanel({
             if (!readOnly) onChange("instructions", event.target.value);
           }}
         />
-      </label>
+      </label>}
 
-      <label className="form-label">
+      {isTask && <label className="form-label">
         Output
         <textarea
           readOnly={readOnly}
@@ -104,7 +107,7 @@ export function TaskPanel({
             if (!readOnly) onChange("output", event.target.value);
           }}
         />
-      </label>
+      </label>}
 
       <div className="attachments-section">
         <div className="attachments-header">

@@ -13,7 +13,11 @@ export function BpmnViewer({ xml, tasks, selectedId, onSelect }: { xml: string; 
     viewer.current = instance;
     let active = true;
     const select = (event: { element: { id: string; type: string } }) => {
-      if (event.element.type.endsWith("Task") || event.element.type === "bpmn:CallActivity" || event.element.type === "bpmn:SubProcess") onSelect(event.element.id);
+      const { type } = event.element;
+      const isBusinessElement = type.startsWith("bpmn:")
+        && !type.endsWith("Flow")
+        && !["bpmn:Association", "bpmn:TextAnnotation", "bpmn:Group", "label"].includes(type);
+      if (isBusinessElement) onSelect(event.element.id);
     };
     instance.on("element.click", select);
     void instance.importXML(xml).then(() => {
