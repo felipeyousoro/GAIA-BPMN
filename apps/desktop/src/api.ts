@@ -16,6 +16,19 @@ const processSchema = z.object({
   organizationName: z.string(),
   suborganizationName: z.string()
 });
+const organizationSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  code: z.string().nullable(),
+  isActive: z.boolean()
+});
+const suborganizationSchema = z.object({
+  id: z.string().uuid(),
+  organizationId: z.string().uuid(),
+  name: z.string(),
+  code: z.string().nullable(),
+  isActive: z.boolean()
+});
 
 const attachmentSchema = z.object({
   id: z.string().uuid(),
@@ -53,6 +66,8 @@ const loginResponseSchema = z.object({
 });
 
 export type Process = z.infer<typeof processSchema>;
+export type Organization = z.infer<typeof organizationSchema>;
+export type Suborganization = z.infer<typeof suborganizationSchema>;
 export type Attachment = z.infer<typeof attachmentSchema>;
 export type Task = z.infer<typeof taskSchema>;
 export type User = z.infer<typeof userSchema>;
@@ -223,9 +238,20 @@ export async function listProcesses(): Promise<Process[]> {
   return processSchema.array().parse(await (await request("/api/v1/processes")).json());
 }
 
-export async function importProcess(file: File): Promise<Process> {
+export async function listOrganizations(): Promise<Organization[]> {
+  return organizationSchema.array().parse(await (await request("/api/v1/organizations")).json());
+}
+
+export async function listSuborganizations(organizationId: string): Promise<Suborganization[]> {
+  return suborganizationSchema.array().parse(
+    await (await request(`/api/v1/organizations/${organizationId}/suborganizations`)).json()
+  );
+}
+
+export async function importProcess(file: File, suborganizationId?: string): Promise<Process> {
   const form = new FormData();
   form.append("file", file);
+  if (suborganizationId) form.append("suborganizationId", suborganizationId);
   return processSchema.parse(await (await request("/api/v1/processes/import", { method: "POST", body: form })).json());
 }
 

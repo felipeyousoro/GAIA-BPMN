@@ -1,6 +1,6 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { importProcess, listProcesses, User } from "../api";
+import { importProcess, listOrganizations, listProcesses, listSuborganizations, User } from "../api";
 
 export function Home({
   user,
@@ -12,10 +12,18 @@ export function Home({
   const input = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const isAdmin = user.role === "Admin";
+  const [organizationId, setOrganizationId] = useState<string>();
+  const [suborganizationId, setSuborganizationId] = useState<string>();
 
   const processes = useQuery({ queryKey: ["processes"], queryFn: listProcesses });
+  const organizations = useQuery({ queryKey: ["organizations"], queryFn: listOrganizations });
+  const suborganizations = useQuery({
+    queryKey: ["suborganizations", organizationId],
+    queryFn: () => listSuborganizations(organizationId!),
+    enabled: Boolean(organizationId)
+  });
   const importer = useMutation({
-    mutationFn: importProcess,
+    mutationFn: (file: File) => importProcess(file, suborganizationId),
     onSuccess: process => {
       void queryClient.invalidateQueries({ queryKey: ["processes"] });
       onOpen(process.id);
@@ -43,6 +51,30 @@ export function Home({
 
         {isAdmin && (
           <div className="kpi-actions">
+            <select
+              className="form-input"
+              value={organizationId ?? ""}
+              onChange={event => {
+                setOrganizationId(event.target.value || undefined);
+                setSuborganizationId(undefined);
+              }}
+            >
+              <option value="">Órgão padrão</option>
+              {organizations.data?.filter(item => item.isActive).map(item => (
+                <option key={item.id} value={item.id}>{item.name}</option>
+              ))}
+            </select>
+            <select
+              className="form-input"
+              value={suborganizationId ?? ""}
+              onChange={event => setSuborganizationId(event.target.value || undefined)}
+              disabled={!organizationId}
+            >
+              <option value="">Subórgão padrão</option>
+              {suborganizations.data?.filter(item => item.isActive).map(item => (
+                <option key={item.id} value={item.id}>{item.name}</option>
+              ))}
+            </select>
             <button
               type="button"
               className="btn-primary"

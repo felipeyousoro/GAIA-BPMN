@@ -289,6 +289,44 @@ organizations.MapGet("/{organizationId:guid}/suborganizations", async (Guid orga
         .Where(x => x.OrganizationId == organizationId).OrderBy(x => x.Name)
         .Select(x => new SuborganizationResponse(x.Id, x.OrganizationId, x.Name, x.Code, x.IsActive))
         .ToListAsync(cancellationToken));
+organizations.MapPost("/", async (CreateOrganizationRequest request, AppDbContext db, CancellationToken cancellationToken) =>
+{
+    var organization = new Organization(request.Name, request.Code);
+    db.Organizations.Add(organization);
+    await db.SaveChangesAsync(cancellationToken);
+    return Results.Created($"/api/v1/organizations/{organization.Id}",
+        new OrganizationResponse(organization.Id, organization.Name, organization.Code, organization.IsActive));
+}).RequireAuthorization("AdminOnly");
+organizations.MapPut("/{organizationId:guid}", async (Guid organizationId, UpdateOrganizationRequest request, AppDbContext db, CancellationToken cancellationToken) =>
+{
+    var organization = await db.Organizations.SingleOrDefaultAsync(x => x.Id == organizationId, cancellationToken);
+    if (organization is null) return Results.NotFound();
+    organization.Rename(request.Name);
+    organization.SetActive(request.IsActive);
+    await db.SaveChangesAsync(cancellationToken);
+    return Results.Ok(new OrganizationResponse(organization.Id, organization.Name, organization.Code, organization.IsActive));
+}).RequireAuthorization("AdminOnly");
+organizations.MapPost("/{organizationId:guid}/suborganizations", async (Guid organizationId, CreateSuborganizationRequest request, AppDbContext db, CancellationToken cancellationToken) =>
+{
+    if (!await db.Organizations.AnyAsync(x => x.Id == organizationId, cancellationToken)) return Results.NotFound();
+    var suborganization = new Suborganization(organizationId, request.Name, request.Code);
+    db.Suborganizations.Add(suborganization);
+    await db.SaveChangesAsync(cancellationToken);
+    return Results.Created($"/api/v1/organizations/{organizationId}/suborganizations/{suborganization.Id}",
+        new SuborganizationResponse(suborganization.Id, organizationId, suborganization.Name, suborganization.Code, suborganization.IsActive));
+}).RequireAuthorization("AdminOnly");
+organizations.MapPut("/{organizationId:guid}/suborganizations/{suborganizationId:guid}", async (
+    Guid organizationId, Guid suborganizationId, UpdateOrganizationRequest request, AppDbContext db, CancellationToken cancellationToken) =>
+{
+    var suborganization = await db.Suborganizations.SingleOrDefaultAsync(
+        x => x.Id == suborganizationId && x.OrganizationId == organizationId, cancellationToken);
+    if (suborganization is null) return Results.NotFound();
+    suborganization.Rename(request.Name);
+    suborganization.SetActive(request.IsActive);
+    await db.SaveChangesAsync(cancellationToken);
+    return Results.Ok(new SuborganizationResponse(
+        suborganization.Id, suborganization.OrganizationId, suborganization.Name, suborganization.Code, suborganization.IsActive));
+}).RequireAuthorization("AdminOnly");
 });
 processes.MapGet("/", async (AppDbContext db, CancellationToken cancellationToken) =>
 {
@@ -381,6 +419,17 @@ processes.MapPost("/", async (CreateProcessRequest request, AppDbContext db, Can
     return Results.Created($"/api/v1/processes/{process.Id}", new ProcessResponse(
         process.Id, process.ExternalKey, process.Name, process.FileName, process.UpdatedAt, 0,
         process.SuborganizationId, suborganization.OrganizationId, suborganization.Organization.Name, suborganization.Name));
+}).RequireAuthorization("AdminOnly");
+processes.MapPut("/{processId:guid}/organization", async (Guid processId, TransferProcessRequest request, AppDbContext db, CancellationToken cancellationToken) =>
+{
+    var process = await db.Processes.SingleOrDefaultAsync(x => x.Id == processId, cancellationToken);
+    var suborganization = await db.Suborganizations.Include(x => x.Organization)
+        .SingleOrDefaultAsync(x => x.Id == request.SuborganizationId, cancellationToken);
+    if (process is null || suborganization is null) return Results.NotFound();
+    if (!suborganization.IsActive || !suborganization.Organization.IsActive) return Results.BadRequest("Target suborganization is inactive.");
+    process.AssignToSuborganization(suborganization.Id);
+    await db.SaveChangesAsync(cancellationToken);
+    return Results.NoContent();
 }).RequireAuthorization("AdminOnly");
 processes.MapGet("/{processId:guid}/elements", async (Guid processId, AppDbContext db, CancellationToken cancellationToken) =>
 {

@@ -28,6 +28,10 @@ public sealed record ProcessResponse(
     string SuborganizationName);
 public sealed record OrganizationResponse(Guid Id, string Name, string? Code, bool IsActive);
 public sealed record SuborganizationResponse(Guid Id, Guid OrganizationId, string Name, string? Code, bool IsActive);
+public sealed record CreateOrganizationRequest(string Name, string? Code);
+public sealed record UpdateOrganizationRequest(string Name, bool IsActive);
+public sealed record CreateSuborganizationRequest(string Name, string? Code);
+public sealed record TransferProcessRequest(Guid SuborganizationId);
 public sealed record ElementResponse(
     Guid Id,
     Guid ProcessId,

@@ -84,6 +84,19 @@ public sealed class Organization
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset UpdatedAt { get; private set; }
     public List<Suborganization> Suborganizations { get; private set; } = [];
+
+    public void Rename(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("Organization name is required.", nameof(name));
+        Name = name.Trim();
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    public void SetActive(bool isActive)
+    {
+        IsActive = isActive;
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
 }
 
 public sealed class Suborganization
@@ -112,6 +125,19 @@ public sealed class Suborganization
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset UpdatedAt { get; private set; }
     public List<Process> Processes { get; private set; } = [];
+
+    public void Rename(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("Suborganization name is required.", nameof(name));
+        Name = name.Trim();
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    public void SetActive(bool isActive)
+    {
+        IsActive = isActive;
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
 }
 
 public sealed class BpmnElement
