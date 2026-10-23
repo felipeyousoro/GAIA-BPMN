@@ -290,6 +290,7 @@ organizations.MapGet("/{organizationId:guid}/suborganizations", async (Guid orga
         .Where(x => x.OrganizationId == organizationId).OrderBy(x => x.Name)
         .Select(x => new SuborganizationResponse(x.Id, x.OrganizationId, x.Name, x.Code, x.IsActive))
         .ToListAsync(cancellationToken));
+});
 organizations.MapPost("/", async (CreateOrganizationRequest request, AppDbContext db, CancellationToken cancellationToken) =>
 {
     var organization = new Organization(request.Name, request.Code);
@@ -328,7 +329,6 @@ organizations.MapPut("/{organizationId:guid}/suborganizations/{suborganizationId
     return Results.Ok(new SuborganizationResponse(
         suborganization.Id, suborganization.OrganizationId, suborganization.Name, suborganization.Code, suborganization.IsActive));
 }).RequireAuthorization("AdminOnly");
-});
 processes.MapGet("/", async (int? pageSize, AppDbContext db, CancellationToken cancellationToken) =>
 {
     var result = await db.Processes.AsNoTracking().OrderByDescending(x => x.UpdatedAt)
